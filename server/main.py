@@ -14,11 +14,11 @@ import subprocess
 from pathlib import Path
 from tqdm import tqdm
 
-from section_divider import PDFParser
-from llm_wrapper import HuggingFaceLLM
-from chunk_summarizer import ChunkSummarizer
-from llm_latex_generator import LLMLatexGenerator
-from slide_generator import SlideGenerator
+from .section_divider import PDFParser
+from .llm_wrapper import HuggingFaceLLM
+from .chunk_summarizer import ChunkSummarizer
+from .llm_latex_generator import LLMLatexGenerator
+from .slide_generator import SlideGenerator
 
 
 def main():
@@ -204,7 +204,3 @@ def compile_latex_to_pdf(tex_file: Path, output_dir: str, log_fn=None) -> Path:
                 log_fn(str(e))
             raise
         raise RuntimeError(f"PDF compilation error: {e}")
-
-
-if __name__ == "__main__":
-    main()

@@ -1,5 +1,5 @@
 import tqdm
-from llm_wrapper import HuggingFaceLLM
+from .llm_wrapper import HuggingFaceLLM
 
 
 class SlideGenerator:

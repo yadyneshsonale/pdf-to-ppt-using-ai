@@ -1,7 +1,7 @@
 """
 LLM-based LaTeX Generator — Use LLM to convert slides to LaTeX presentation
 """
-from llm_wrapper import HuggingFaceLLM
+from .llm_wrapper import HuggingFaceLLM
 
 
 class LLMLatexGenerator:
