@@ -1,21 +1,22 @@
 // Prisma Schema for Paper to PPT Generator
-// Database: PostgreSQL
+// Database: SQLite (for development)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 // Plans table - subscription tiers
+// PlanType: FREE, PAID, PREMIUM (stored as String for SQLite)
 model Plan {
   id        String   @id @default(uuid())
-  name      PlanType @unique
+  name      String   @unique
   price     Float    @default(0)
-  features  String[] @default([])
+  features  String   @default("")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   users     User[]
@@ -23,24 +24,14 @@ model Plan {
   @@map("plans")
 }
 
-enum PlanType {
-  FREE
-  PAID
-  PREMIUM
-}
-
-enum UserRole {
-  USER
-  ADMIN
-}
-
 // Users table - authentication and profile
+// UserRole: USER, ADMIN (stored as String for SQLite)
 model User {
   id           String        @id @default(uuid())
   email        String        @unique
   passwordHash String        @map("password_hash")
   name         String?
-  role         UserRole      @default(USER)
+  role         String        @default("USER")
   planId       String?       @map("plan_id")
   plan         Plan?         @relation(fields: [planId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -65,13 +56,14 @@ model UserHistory {
 }
 
 // PPT table - stores generated presentations
+// slideJson stored as String (JSON stringified) for SQLite
 model Ppt {
   id         String        @id @default(uuid())
   userId     String        @map("user_id")
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   templateId String?       @map("template_id")
   title      String
-  slideJson  Json          @map("slide_json")
+  slideJson  String        @map("slide_json")
   pdfPath    String?       @map("pdf_path")
   texPath    String?       @map("tex_path")
   createdAt  DateTime      @default(now()) @map("created_at")

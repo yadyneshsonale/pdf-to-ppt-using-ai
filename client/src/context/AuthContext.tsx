@@ -6,6 +6,7 @@ import {
   logout as apiLogout,
   getCurrentUser,
   getToken,
+  removeToken,
   verifyToken,
 } from '../services/auth';
 
@@ -38,16 +39,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Add timeout to prevent hanging if server is not available
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Auth timeout')), 5000);
+      });
+
       try {
-        const isValid = await verifyToken();
+        const isValid = await Promise.race([verifyToken(), timeoutPromise]);
         if (isValid) {
-          const currentUser = await getCurrentUser();
+          const currentUser = await Promise.race([getCurrentUser(), timeoutPromise]);
           setUser(currentUser);
+        } else {
+          // Token invalid, clear it
+          removeToken();
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        // Token is invalid, clear it
-        apiLogout();
+        // Token is invalid or server unavailable, clear it
+        removeToken();
       } finally {
         setIsLoading(false);
       }
@@ -103,6 +112,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     refreshUser,
   };
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

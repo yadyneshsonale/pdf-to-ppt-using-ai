@@ -9,33 +9,33 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  // Create plans
+  // Create plans (features stored as JSON string for SQLite compatibility)
   const plans = [
     {
       name: 'FREE',
       price: 0,
-      features: [
+      features: JSON.stringify([
         'Up to 5 PPT conversions/month',
         'Basic templates only',
         'Standard quality',
         'Email support'
-      ]
+      ])
     },
     {
       name: 'PAID',
       price: 9.99,
-      features: [
+      features: JSON.stringify([
         'Up to 50 PPT conversions/month',
         'All templates including premium',
         'High quality output',
         'Priority email support',
         'Custom branding'
-      ]
+      ])
     },
     {
       name: 'PREMIUM',
       price: 29.99,
-      features: [
+      features: JSON.stringify([
         'Unlimited PPT conversions',
         'All templates + exclusive designs',
         'Highest quality output',
@@ -43,7 +43,7 @@ async function main() {
         'Custom branding',
         'API access',
         'Team collaboration'
-      ]
+      ])
     }
   ];
 

@@ -3,6 +3,18 @@
 
 const prisma = require('../config/database');
 
+// Helper to stringify JSON for SQLite storage
+const stringifyJson = (data) => typeof data === 'string' ? data : JSON.stringify(data);
+// Helper to parse JSON from SQLite storage
+const parseJson = (data) => {
+  if (!data) return null;
+  try {
+    return typeof data === 'string' ? JSON.parse(data) : data;
+  } catch {
+    return data;
+  }
+};
+
 class PptService {
   /**
    * Save a generated PPT
@@ -14,7 +26,7 @@ class PptService {
       data: {
         userId,
         title,
-        slideJson,
+        slideJson: stringifyJson(slideJson),
         templateId,
         pdfPath,
         texPath
@@ -30,7 +42,7 @@ class PptService {
       }
     });
 
-    return ppt;
+    return { ...ppt, slideJson: parseJson(ppt.slideJson) };
   }
 
   /**
@@ -84,7 +96,7 @@ class PptService {
       throw new Error('PPT not found');
     }
 
-    return ppt;
+    return { ...ppt, slideJson: parseJson(ppt.slideJson) };
   }
 
   /**
@@ -102,15 +114,17 @@ class PptService {
       throw new Error('PPT not found');
     }
 
-    return prisma.ppt.update({
+    const updated = await prisma.ppt.update({
       where: { id: pptId },
       data: {
         title: data.title,
-        slideJson: data.slideJson,
+        slideJson: data.slideJson ? stringifyJson(data.slideJson) : undefined,
         templateId: data.templateId,
         updatedAt: new Date()
       }
     });
+    
+    return { ...updated, slideJson: parseJson(updated.slideJson) };
   }
 
   /**
