@@ -64,35 +64,42 @@ def process_command(args):
     # Pipeline with progress tracking
     with tqdm(total=2, desc="Overall Progress", unit="step", ncols=80) as pbar:
         
-        # Step 1: Extract and chunk PDF
-        pbar.set_description("📄 Extracting PDF")
-        parser = PDFParser(args.input)
-        chunks = parser.get_chunks()
-        log(f"STEP1: extracted {len(chunks)} chunks")
-        pbar.update(1)
+        # # Step 1: Extract and chunk PDF
+        # pbar.set_description("📄 Extracting PDF")
+        # parser = PDFParser(args.input)
+        # chunks = parser.get_chunks()
+        # log(f"STEP1: extracted {len(chunks)} chunks")
+        # pbar.update(1)
         
-        # Step 2: Summarize chunks and get JSON slides
-        pbar.set_description("📝 Summarizing chunks")
-        summarizer = ChunkSummarizer(llm)
-        chunk_summaries = summarizer.get_summary(chunks)
-        log(f"STEP2: summarized chunks -> {len(chunk_summaries)} summaries")
-        pbar.update(1)
+        # # Step 2: Summarize chunks and get JSON slides
+        # pbar.set_description("📝 Summarizing chunks")
+        # summarizer = ChunkSummarizer(llm)
+        # chunk_summaries = summarizer.get_summary(chunks)
+        # log(f"STEP2: summarized chunks -> {len(chunk_summaries)} summaries")
+        # pbar.update(1)
         
-        # Flatten the list of lists into a single list of slide objects
-        all_slides = []
-        for summary in chunk_summaries:
-            if isinstance(summary, list):
-                all_slides.extend(summary)
-            else:
-                all_slides.append(summary)
+        # # Flatten the list of lists into a single list of slide objects
+        # all_slides = []
+        # for summary in chunk_summaries:
+        #     if isinstance(summary, list):
+        #         all_slides.extend(summary)
+        #     else:
+        #         all_slides.append(summary)
         
-        # Save JSON output
+        # # Save JSON output
+        # output_file = Path(args.out) / "slides.json"
+        # with open(output_file, "w", encoding="utf-8") as f:
+        #     json.dump(all_slides, f, indent=4, ensure_ascii=False)
+        
+        # log(f"OUTPUT: {len(all_slides)} slides saved to {output_file}")
+        # print(f"\n✅ Generated {len(all_slides)} slides -> {output_file}")
+
+        with open("/Users/yadyneshsonale/Desktop/pdf-to-ppt-using-ai/slides.json", "r") as f: 
+            all_slides = json.load(f)
+
         output_file = Path(args.out) / "slides.json"
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(all_slides, f, indent=4, ensure_ascii=False)
-        
-        log(f"OUTPUT: {len(all_slides)} slides saved to {output_file}")
-        print(f"\n✅ Generated {len(all_slides)} slides -> {output_file}")
         
         return all_slides
 

@@ -4,10 +4,12 @@ import { Hero } from "./components/Hero";
 import { Features } from "./components/Features";
 import { HowItWorks } from "./components/HowItWorks";
 import { Pricing } from "./components/Pricing";
+import { PricingPage } from "./components/PricingPage";
 import { Testimonials } from "./components/Testimonials";
 import { Footer } from "./components/Footer";
-import { EditorPage } from "./components/EditorPage";
+import { EditorPageEnhanced } from "./components/EditorPageEnhanced";
 import { TemplatesPage } from "./components/TemplatesPage";
+import { TemplatesGallery } from "./components/TemplatesGallery";
 import { SignInPage } from "./components/SignInPage";
 import { SignUpPage } from "./components/SignUpPage";
 import { FileEditorPage } from "./components/FileEditorPage";
@@ -16,7 +18,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import type { GenerateResponse, Slide } from "./services/api";
 
-type Page = "landing" | "signin" | "signup" | "templates" | "editor" | "files" | "dashboard" | "admin";
+type Page = "landing" | "signin" | "signup" | "templates" | "templates-gallery" | "pricing" | "editor" | "files" | "dashboard" | "admin";
 
 interface PresentationData {
   jobId: string;
@@ -171,10 +173,39 @@ function AppContent() {
     );
   }
 
+  if (currentPage === "templates-gallery") {
+    return (
+      <TemplatesGallery
+        onBack={() => setCurrentPage("landing")}
+        onSelectTemplate={(templateId) => {
+          setSelectedTemplate(templateId);
+          // If user has already uploaded a file, go to template generation
+          if (uploadData) {
+            setCurrentPage("templates");
+          } else {
+            // Otherwise show a message to upload first
+            setCurrentPage("landing");
+          }
+        }}
+        onUpgrade={() => setCurrentPage("pricing")}
+      />
+    );
+  }
+
+  if (currentPage === "pricing") {
+    return (
+      <PricingPage
+        onBack={() => setCurrentPage("landing")}
+        onSelectPlan={handleSelectPlan}
+      />
+    );
+  }
+
   if (currentPage === "editor") {
     return (
-      <EditorPage 
+      <EditorPageEnhanced 
         onLogout={handleLogout}
+        onBack={() => setCurrentPage("landing")}
         initialSlides={presentationData?.slides}
         jobId={presentationData?.jobId}
         pdfPath={presentationData?.pdfPath}
@@ -189,9 +220,12 @@ function AppContent() {
       <Header 
         onGetStarted={handleGetStarted} 
         onSignIn={() => setCurrentPage("signin")}
+        onSignUp={() => setCurrentPage("signup")}
         onFiles={() => setCurrentPage("files")}
         onDashboard={() => setCurrentPage("dashboard")}
         onAdmin={() => setCurrentPage("admin")}
+        onPricing={() => setCurrentPage("pricing")}
+        onTemplates={() => setCurrentPage("templates-gallery")}
         isLoggedIn={isAuthenticated}
         isAdmin={isAdmin}
         userName={user?.name || user?.email}

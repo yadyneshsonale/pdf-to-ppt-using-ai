@@ -1,0 +1,28 @@
+[
+    {
+        "slide_title": "Longest Prefix Matching (LPM) - Need and Importance",
+        "content": "LPM is required in IP routing to determine the most specific route for a given destination IP address.\n\nKey benefits of LPM include:\n• Ensures accurate forwarding decisions\n• Allows route aggregation and hierarchical routing\n• Supports overlapping IP prefixes\n• Improves scalability of routing tables\n• Enables fine-grained control over traffic routing",
+        "paper_title": null,
+        "authors": null
+    },
+    {
+        "slide_title": "Binary Search Tree (BST) IP Lookup Implementation",
+        "content": "Key Points:\n• Routing table entries are stored as nodes in a BST, ordered by IP prefix values.\n• The algorithm works by comparing the destination IP with node prefixes, traversing the tree, and tracking the best match.\n• Time complexity: Average case O(log N), Worst case O(N) due to unbalanced tree."
+    },
+    {
+        "slide_title": "Working of Binary Search Tree IP Lookup",
+        "content": "Key Steps:\n• Convert IP addresses to binary or integer form\n• Insert prefixes into BST based on numeric order\n• Traverse BST while checking prefix matches\n• Track the best (longest) match"
+    },
+    {
+        "slide_title": "Advantages of Binary Search Tree IP Lookup",
+        "content": "Key Points:\n• Simple implementation\n• Easier to understand\n• Fast average case performance (O(log N))"
+    },
+    {
+        "slide_title": "Disadvantages of Binary Search Tree IP Lookup",
+        "content": "Key Points:\n• Not optimized for prefix matching\n• Performance degrades with large routing tables\n• Requires extra checks for LPM"
+    },
+    {
+        "slide_title": "Binary Trie Data Structure",
+        "content": "A Binary Trie is a tree data structure optimized for prefix matching, where each node represents a single bit (0 or 1)."
+    }
+]

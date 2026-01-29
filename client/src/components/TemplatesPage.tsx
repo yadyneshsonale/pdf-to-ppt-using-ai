@@ -24,76 +24,114 @@ import { generatePresentation, type GenerateProgress, type GenerateResponse, Api
 interface Template {
   id: string;
   name: string;
-  category: "Professional" | "Academic" | "Modern" | "Minimal";
+  category: "Business" | "Creative" | "Technology" | "Education" | "Minimal";
   preview: string;
   isPremium: boolean;
   tags: string[];
+  gradient: string;
+  accentColor: string;
 }
 
 const TEMPLATES: Template[] = [
   {
     id: "corporate-blue",
     name: "Corporate Blue",
-    category: "Professional",
-    preview: "https://images.unsplash.com/photo-1586381317467-392e3a1ba577?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcmVzZW50YXRpb24lMjBzbGlkZSUyMHRlbXBsYXRlJTIwZGVzaWduJTIwcHJvZmVzc2lvbmFsJTIwZnV0dXJpc3RpY3xlbnwxfHx8fDE3Njk1MTgxMjJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+    category: "Business",
+    preview: "",
     isPremium: false,
-    tags: ["Business", "Clean", "Blue"]
+    tags: ["Business", "Clean", "Professional"],
+    gradient: "linear-gradient(135deg, #0a1628 0%, #1e3a5f 50%, #0a1628 100%)",
+    accentColor: "#3b82f6"
   },
   {
-    id: "executive-dark",
-    name: "Executive Dark",
-    category: "Professional",
-    preview: "https://images.unsplash.com/photo-1582406592664-24b0c8705265?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkYXJrJTIwdGhlbWUlMjBwcmVzZW50YXRpb24lMjBkZXNpZ258ZW58MXx8fHwxNzY5NTE4MTI1fDA",
+    id: "executive-gold",
+    name: "Executive Gold",
+    category: "Business",
+    preview: "",
     isPremium: true,
-    tags: ["Dark", "Executive", "Gold"]
+    tags: ["Executive", "Dark", "Gold"],
+    gradient: "linear-gradient(180deg, #1c1917 0%, #0c0a09 100%)",
+    accentColor: "#fbbf24"
   },
   {
-    id: "academic",
-    name: "Clean Academic",
-    category: "Academic",
-    preview: "https://images.unsplash.com/photo-1717994818193-266ff93e3396?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwcHJlc2VudGF0aW9uJTIwc2xpZGUlMjBsYXlvdXR8ZW58MXx8fHwxNzY5NTE4MTI0fDA",
+    id: "modern-gradient",
+    name: "Modern Gradient",
+    category: "Creative",
+    preview: "",
     isPremium: false,
-    tags: ["Thesis", "White", "Clear"]
+    tags: ["Creative", "Colorful", "Modern"],
+    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+    accentColor: "#a855f7"
   },
   {
     id: "tech-startup",
     name: "Tech Startup",
-    category: "Modern",
-    preview: "https://images.unsplash.com/photo-1569000972143-d9f60420a1b4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzY2llbnRpZmljJTIwcmVzZWFyY2glMjBwb3N0ZXIlMjBiYWNrZ3JvdW5kJTIwYmx1ZXxlbnwxfHx8fDE3Njk1MTgxMjd8MA",
+    category: "Technology",
+    preview: "",
     isPremium: false,
-    tags: ["Tech", "Gradient", "Modern"]
+    tags: ["Tech", "Grid", "Cyan"],
+    gradient: "linear-gradient(180deg, #0f172a 0%, #030712 100%)",
+    accentColor: "#22d3ee"
   },
   {
-    id: "minimalist-white",
-    name: "Minimalist White",
+    id: "clean-minimal",
+    name: "Clean Minimal",
     category: "Minimal",
-    preview: "https://images.unsplash.com/photo-1497366216548-37526070297c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    preview: "",
     isPremium: false,
-    tags: ["White", "Structure", "Flat"]
+    tags: ["White", "Clean", "Simple"],
+    gradient: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+    accentColor: "#3b82f6"
   },
   {
-    id: "neon-cyber",
-    name: "Neon Cyber",
-    category: "Modern",
-    preview: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    isPremium: true,
-    tags: ["Cyberpunk", "Neon", "Glow"]
-  },
-  {
-    id: "nature-earth",
-    name: "Nature & Earth",
-    category: "Professional",
-    preview: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    id: "nature-green",
+    name: "Nature Green",
+    category: "Creative",
+    preview: "",
     isPremium: false,
-    tags: ["Nature", "Green", "Organic"]
+    tags: ["Nature", "Green", "Organic"],
+    gradient: "linear-gradient(135deg, #052e16 0%, #14532d 50%, #052e16 100%)",
+    accentColor: "#22c55e"
   },
   {
-    id: "creative-gradient",
-    name: "Creative Gradient",
-    category: "Modern",
-    preview: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    id: "academic-classic",
+    name: "Academic Classic",
+    category: "Education",
+    preview: "",
+    isPremium: false,
+    tags: ["Academic", "Research", "Thesis"],
+    gradient: "linear-gradient(180deg, #312e81 0%, #1e1b4b 100%)",
+    accentColor: "#818cf8"
+  },
+  {
+    id: "sunset-warm",
+    name: "Sunset Warm",
+    category: "Creative",
+    preview: "",
     isPremium: true,
-    tags: ["Creative", "Colorful", "Gradient"]
+    tags: ["Warm", "Orange", "Creative"],
+    gradient: "linear-gradient(135deg, #7c2d12 0%, #1c1917 60%, #1c1917 100%)",
+    accentColor: "#f97316"
+  },
+  {
+    id: "ocean-blue",
+    name: "Ocean Blue",
+    category: "Creative",
+    preview: "",
+    isPremium: false,
+    tags: ["Ocean", "Blue", "Calm"],
+    gradient: "linear-gradient(180deg, #0c4a6e 0%, #082f49 60%, #0c4a6e 100%)",
+    accentColor: "#0ea5e9"
+  },
+  {
+    id: "professional-gray",
+    name: "Professional Gray",
+    category: "Business",
+    preview: "",
+    isPremium: false,
+    tags: ["Gray", "Neutral", "Corporate"],
+    gradient: "linear-gradient(135deg, #27272a 0%, #18181b 100%)",
+    accentColor: "#71717a"
   }
 ];
 
@@ -117,7 +155,7 @@ export function TemplatesPage({ onBack, onSelect, uploadData, onGenerationComple
   const [progress, setProgress] = useState<GenerateProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const categories = ["All", "Professional", "Academic", "Modern", "Minimal"];
+  const categories = ["All", "Business", "Creative", "Technology", "Education", "Minimal"];
 
   const filteredTemplates = TEMPLATES.filter(t => {
     const matchesSearch = t.name.toLowerCase().includes(search.toLowerCase());
@@ -310,13 +348,105 @@ export function TemplatesPage({ onBack, onSelect, uploadData, onGenerationComple
                 }`}
                 onClick={() => setSelectedId(template.id)}
               >
-                <div className="relative aspect-video">
-                  <ImageWithFallback 
-                    src={template.preview} 
-                    alt={template.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent opacity-60" />
+                <div className="relative aspect-video overflow-hidden" style={{ background: template.gradient }}>
+                  {/* Decorative elements based on template */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {template.id === 'corporate-blue' && (
+                      <>
+                        <div className="absolute top-[10%] right-[5%] w-[40%] h-[50%] rounded-full opacity-10" style={{ background: template.accentColor }} />
+                        <div className="absolute bottom-[10%] left-[5%] w-[25%] h-[40%] rounded-full opacity-10" style={{ background: template.accentColor }} />
+                      </>
+                    )}
+                    {template.id === 'executive-gold' && (
+                      <>
+                        <div className="absolute bottom-[8%] left-[5%] right-[5%] h-[3px] opacity-30" style={{ background: `linear-gradient(90deg, transparent, ${template.accentColor}, transparent)` }} />
+                        <div className="absolute top-[5%] right-[15%] w-[2px] h-[25%] opacity-30" style={{ background: template.accentColor }} />
+                        <div className="absolute top-[5%] right-[10%] w-[15%] h-[12%] rounded-full opacity-10" style={{ background: template.accentColor }} />
+                      </>
+                    )}
+                    {template.id === 'modern-gradient' && (
+                      <>
+                        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[80%] rounded-full opacity-20" style={{ background: template.accentColor }} />
+                        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[70%] rounded-full opacity-15" style={{ background: '#ec4899' }} />
+                      </>
+                    )}
+                    {template.id === 'tech-startup' && (
+                      <>
+                        <div className="absolute inset-0 opacity-10" style={{ 
+                          backgroundImage: `linear-gradient(${template.accentColor} 1px, transparent 1px), linear-gradient(90deg, ${template.accentColor} 1px, transparent 1px)`,
+                          backgroundSize: '20px 20px'
+                        }} />
+                        <div className="absolute top-[20%] right-[10%] w-[30%] h-[40%] rounded-full opacity-10" style={{ background: template.accentColor }} />
+                        <div className="absolute bottom-[8%] left-0 w-[30%] h-[4px] opacity-30" style={{ background: template.accentColor }} />
+                      </>
+                    )}
+                    {template.id === 'clean-minimal' && (
+                      <>
+                        <div className="absolute top-0 left-0 w-[3%] h-full" style={{ background: template.accentColor }} />
+                        <div className="absolute top-[8%] right-[5%] w-[15%] h-[18%] rounded-full opacity-8" style={{ background: template.accentColor }} />
+                      </>
+                    )}
+                    {template.id === 'nature-green' && (
+                      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[80%] rounded-full opacity-15" style={{ background: template.accentColor }} />
+                    )}
+                    {template.id === 'academic-classic' && (
+                      <>
+                        <div className="absolute inset-[5%] border opacity-20 rounded-lg" style={{ borderColor: template.accentColor }} />
+                        <div className="absolute top-[8%] left-[8%] w-[8%] h-[10%] rounded-full opacity-15" style={{ background: template.accentColor }} />
+                        <div className="absolute bottom-[8%] right-[8%] w-[8%] h-[10%] rounded-full opacity-15" style={{ background: template.accentColor }} />
+                      </>
+                    )}
+                    {template.id === 'sunset-warm' && (
+                      <>
+                        <div className="absolute top-[-20%] left-[-20%] w-[70%] h-[90%] rounded-full opacity-25" style={{ background: template.accentColor }} />
+                        <div className="absolute top-[5%] left-[5%] w-[20%] h-[25%] rounded-full opacity-15" style={{ background: template.accentColor }} />
+                      </>
+                    )}
+                    {template.id === 'ocean-blue' && (
+                      <>
+                        <div className="absolute top-[-15%] left-0 right-0 h-[40%] opacity-10" style={{ 
+                          background: `linear-gradient(180deg, ${template.accentColor}, transparent)`,
+                          clipPath: 'ellipse(60% 100% at 50% 0%)'
+                        }} />
+                        <div className="absolute bottom-[10%] right-[5%] w-[35%] h-[45%] rounded-full opacity-10" style={{ background: template.accentColor }} />
+                      </>
+                    )}
+                    {template.id === 'professional-gray' && (
+                      <>
+                        <div className="absolute bottom-0 left-0 right-0 h-[12%]" style={{ background: '#27272a' }} />
+                        <div className="absolute bottom-[4%] left-[5%] w-[20%] h-[3px]" style={{ background: template.accentColor }} />
+                        <div className="absolute top-[8%] right-[5%] w-[12%] h-[4px] opacity-50" style={{ background: '#52525b' }} />
+                        <div className="absolute top-[15%] right-[5%] w-[8%] h-[4px] opacity-30" style={{ background: '#52525b' }} />
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Sample slide content preview */}
+                  <div className="absolute inset-0 p-4 flex flex-col justify-between pointer-events-none">
+                    <div className="text-left">
+                      <div 
+                        className="text-[10px] font-bold mb-1 truncate" 
+                        style={{ color: template.id === 'clean-minimal' ? '#0f172a' : '#ffffff' }}
+                      >
+                        Sample Presentation
+                      </div>
+                      <div 
+                        className="text-[6px] opacity-60 truncate"
+                        style={{ color: template.id === 'clean-minimal' ? '#475569' : '#ffffff' }}
+                      >
+                        Subtitle goes here
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {[1,2,3].map(i => (
+                        <div 
+                          key={i} 
+                          className="h-[3px] rounded-full flex-1 opacity-20"
+                          style={{ background: template.accentColor }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                   
                   {template.isPremium ? (
                     <div className="absolute top-4 right-4 flex items-center gap-2">
