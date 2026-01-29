@@ -8,7 +8,7 @@ import uuid
 import json
 import re
 
-from server.main import process_command
+from server.pdfparser.main import process_command
 
 app = FastAPI(title="SlideWeaver API")
 
@@ -76,14 +76,26 @@ async def generate_slides(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Read generated slides for the response
-    slides_file = workdir / "slides.txt"
-    slides_content = ""
-    if slides_file.exists():
-        slides_content = slides_file.read_text(encoding="utf-8")
-
-    # Parse slides content into structured format
-    slides_data = parse_slides(slides_content)
+    # Read generated slides JSON for the response
+    slides_json_file = workdir / "slides.json"
+    slides_data = []
+    
+    if slides_json_file.exists():
+        try:
+            with open(slides_json_file, "r", encoding="utf-8") as f:
+                slides_data = json.load(f)
+        except json.JSONDecodeError:
+            # Fallback to text parsing if JSON is invalid
+            slides_file = workdir / "slides.txt"
+            if slides_file.exists():
+                slides_content = slides_file.read_text(encoding="utf-8")
+                slides_data = parse_slides(slides_content)
+    else:
+        # Fallback to slides.txt if JSON doesn't exist
+        slides_file = workdir / "slides.txt"
+        if slides_file.exists():
+            slides_content = slides_file.read_text(encoding="utf-8")
+            slides_data = parse_slides(slides_content)
 
     return {
         "status": "success",

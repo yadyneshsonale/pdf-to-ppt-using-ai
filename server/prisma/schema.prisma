@@ -1,6 +1,3 @@
-// Prisma Schema for Paper to PPT Generator
-// Database: SQLite (for development)
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,8 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Plans table - subscription tiers
-// PlanType: FREE, PAID, PREMIUM (stored as String for SQLite)
 model Plan {
   id        String   @id @default(uuid())
   name      String   @unique
@@ -24,8 +19,6 @@ model Plan {
   @@map("plans")
 }
 
-// Users table - authentication and profile
-// UserRole: USER, ADMIN (stored as String for SQLite)
 model User {
   id           String        @id @default(uuid())
   email        String        @unique
@@ -33,34 +26,30 @@ model User {
   name         String?
   role         String        @default("USER")
   planId       String?       @map("plan_id")
-  plan         Plan?         @relation(fields: [planId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
-  history      UserHistory[]
   ppts         Ppt[]
+  history      UserHistory[]
+  plan         Plan?         @relation(fields: [planId], references: [id])
 
   @@map("users")
 }
 
-// User History - tracks paper conversions
 model UserHistory {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   paperName String   @map("paper_name")
   pptId     String?  @map("ppt_id")
-  ppt       Ppt?     @relation(fields: [pptId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now()) @map("created_at")
+  ppt       Ppt?     @relation(fields: [pptId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_history")
 }
 
-// PPT table - stores generated presentations
-// slideJson stored as String (JSON stringified) for SQLite
 model Ppt {
   id         String        @id @default(uuid())
   userId     String        @map("user_id")
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   templateId String?       @map("template_id")
   title      String
   slideJson  String        @map("slide_json")
@@ -68,6 +57,7 @@ model Ppt {
   texPath    String?       @map("tex_path")
   createdAt  DateTime      @default(now()) @map("created_at")
   updatedAt  DateTime      @updatedAt @map("updated_at")
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   history    UserHistory[]
 
   @@map("ppts")

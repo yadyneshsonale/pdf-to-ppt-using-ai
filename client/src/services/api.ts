@@ -6,11 +6,47 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const HF_API_TOKEN = import.meta.env.VITE_HF_API_TOKEN || '';
 
+/**
+ * Internal normalized slide structure used throughout the app
+ */
 export interface Slide {
   id: string;
   title: string;
   content: string;
   type: "title" | "content" | "image";
+  paperTitle?: string | null;
+  authors?: string | null;
+  layout?: string;
+  elements?: SlideElement[];
+}
+
+/**
+ * Slide element for advanced editing (images, tables, shapes, etc.)
+ */
+export interface SlideElement {
+  id: string;
+  type: "text" | "image" | "table" | "shape";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  content?: string;
+  src?: string;
+  data?: unknown;
+}
+
+/**
+ * Raw API slide object format (new format from backend)
+ */
+export interface ApiSlideObject {
+  slide_title?: string;
+  content?: string;
+  paper_title?: string | null;
+  authors?: string | null;
+  // Legacy fields for backwards compatibility
+  id?: string;
+  title?: string;
+  type?: "title" | "content" | "image";
 }
 
 export interface GenerateResponse {
@@ -19,6 +55,17 @@ export interface GenerateResponse {
   pdf_path: string;
   tex_path: string;
   slides: Slide[];
+}
+
+/**
+ * Raw API response before normalization
+ */
+interface RawApiResponse {
+  status: string;
+  job_id: string;
+  pdf_path: string;
+  tex_path: string;
+  slides: ApiSlideObject[];
 }
 
 export interface GenerateProgress {
@@ -36,6 +83,96 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+/**
+ * Normalize a single API slide object to internal Slide format
+ * Handles both new format (slide_title, content) and legacy format (title, content, id)
+ */
+function normalizeSlide(apiSlide: ApiSlideObject, index: number): Slide {
+  // Handle new API format (slide_title) or legacy format (title)
+  const title = apiSlide.slide_title || apiSlide.title || `Slide ${index + 1}`;
+  const content = apiSlide.content || '';
+  const id = apiSlide.id || `slide-${index + 1}`;
+  
+  // Determine slide type: first slide is typically title slide
+  const type = apiSlide.type || (index === 0 ? 'title' : 'content');
+  
+  return {
+    id,
+    title: title.trim(),
+    content: content.trim(),
+    type,
+    paperTitle: apiSlide.paper_title ?? null,
+    authors: apiSlide.authors ?? null,
+    layout: 'default',
+    elements: [],
+  };
+}
+
+/**
+ * Normalize the entire API response to internal format
+ * Handles array of slide objects and preserves order
+ */
+function normalizeApiResponse(rawResponse: RawApiResponse): GenerateResponse {
+  const slides = rawResponse.slides;
+  
+  // Validate response
+  if (!Array.isArray(slides)) {
+    console.warn('API response slides is not an array, using empty array');
+    return {
+      ...rawResponse,
+      slides: [{
+        id: 'slide-1',
+        title: 'No Content',
+        content: 'The API returned no slide content. Please try again.',
+        type: 'title',
+        layout: 'default',
+        elements: [],
+      }],
+    };
+  }
+  
+  // Handle empty array
+  if (slides.length === 0) {
+    console.warn('API returned empty slides array');
+    return {
+      ...rawResponse,
+      slides: [{
+        id: 'slide-1',
+        title: 'No Slides Generated',
+        content: 'The document could not be converted to slides. Please try a different file.',
+        type: 'title',
+        layout: 'default',
+        elements: [],
+      }],
+    };
+  }
+  
+  // Normalize each slide, preserving order
+  const normalizedSlides: Slide[] = slides.map((slide, index) => {
+    try {
+      return normalizeSlide(slide, index);
+    } catch (error) {
+      console.error(`Error normalizing slide ${index}:`, error);
+      return {
+        id: `slide-${index + 1}`,
+        title: `Slide ${index + 1}`,
+        content: 'Error loading slide content',
+        type: 'content' as const,
+        layout: 'default',
+        elements: [],
+      };
+    }
+  });
+  
+  return {
+    status: rawResponse.status,
+    job_id: rawResponse.job_id,
+    pdf_path: rawResponse.pdf_path,
+    tex_path: rawResponse.tex_path,
+    slides: normalizedSlides,
+  };
 }
 
 /**
@@ -107,8 +244,10 @@ export async function generatePresentation(
       progress: 100
     });
 
-    const data: GenerateResponse = await response.json();
-    return data;
+    // Parse raw response and normalize to internal format
+    const rawData: RawApiResponse = await response.json();
+    const normalizedData = normalizeApiResponse(rawData);
+    return normalizedData;
 
   } catch (error) {
     if (error instanceof ApiError) {

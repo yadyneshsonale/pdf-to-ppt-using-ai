@@ -26,17 +26,22 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
+import type { Slide as ApiSlide } from "../services/api";
 
+// Internal editor slide type (compatible with API Slide)
 interface Slide {
   id: string;
   title: string;
   content: string;
   type: "title" | "content" | "image";
+  paperTitle?: string | null;
+  authors?: string | null;
+  layout?: string;
 }
 
 interface EditorPageProps {
   onLogout: () => void;
-  initialSlides?: Slide[];
+  initialSlides?: ApiSlide[];
   jobId?: string;
   pdfPath?: string;
   title?: string;
@@ -55,14 +60,29 @@ const templateStyles: Record<string, { bg: string; accent: string; text: string 
   "creative-gradient": { bg: "from-purple-600 to-pink-500", accent: "bg-white", text: "text-white" },
 };
 
-export function EditorPage({ onLogout, initialSlides, jobId, pdfPath, title, selectedTemplate }: EditorPageProps) {
-  const defaultSlides: Slide[] = [
-    { id: "1", title: "Introduction to Quantum Computing", content: "Understanding the fundamentals of qubits and superposition in modern research.", type: "title" },
-    { id: "2", title: "Research Methodology", content: "Our team utilized a variety of testing methods including ion traps and superconducting loops to maintain coherence.", type: "content" },
-    { id: "3", title: "Experimental Results", content: "The data shows a 25% increase in coherence time compared to previous industry standards.", type: "content" },
-  ];
+/**
+ * Convert API slides to editor-compatible format
+ */
+function normalizeSlides(apiSlides?: ApiSlide[]): Slide[] {
+  if (!apiSlides || apiSlides.length === 0) {
+    return [
+      { id: "1", title: "Introduction", content: "Click to add your content here.", type: "title", layout: "default" },
+    ];
+  }
+  
+  return apiSlides.map((slide, index) => ({
+    id: slide.id || `slide-${index + 1}`,
+    title: slide.title || `Slide ${index + 1}`,
+    content: slide.content || '',
+    type: slide.type || (index === 0 ? 'title' : 'content'),
+    paperTitle: slide.paperTitle,
+    authors: slide.authors,
+    layout: slide.layout || 'default',
+  }));
+}
 
-  const [slides, setSlides] = useState<Slide[]>(initialSlides || defaultSlides);
+export function EditorPage({ onLogout, initialSlides, jobId, pdfPath, title, selectedTemplate }: EditorPageProps) {
+  const [slides, setSlides] = useState<Slide[]>(() => normalizeSlides(initialSlides));
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [presentationTitle, setPresentationTitle] = useState(title || "Research Paper Project");
   
@@ -228,10 +248,46 @@ export function EditorPage({ onLogout, initialSlides, jobId, pdfPath, title, sel
                   <h1 className="text-4xl font-bold tracking-tight text-slate-900 mb-8 border-l-4 border-primary-500 pl-4">
                     {activeSlide.title}
                   </h1>
-                  <div className="flex-1">
-                    <p className="text-xl text-slate-600 leading-relaxed">
-                      {activeSlide.content}
-                    </p>
+                  {/* Show paper title and authors if present (for title slides) */}
+                  {activeSlide.type === 'title' && (activeSlide.paperTitle || activeSlide.authors) && (
+                    <div className="mb-6">
+                      {activeSlide.paperTitle && (
+                        <p className="text-lg font-semibold text-slate-700">{activeSlide.paperTitle}</p>
+                      )}
+                      {activeSlide.authors && (
+                        <p className="text-sm text-slate-500 italic">{activeSlide.authors}</p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex-1 overflow-auto">
+                    {/* Render content with proper line breaks and bullet points */}
+                    <div className="text-xl text-slate-600 leading-relaxed whitespace-pre-wrap">
+                      {activeSlide.content.split('\n').map((line, idx) => {
+                        const trimmedLine = line.trim();
+                        // Check if line starts with bullet indicators
+                        const isBullet = /^[•\-\*]\s/.test(trimmedLine);
+                        if (isBullet) {
+                          return (
+                            <div key={idx} className="flex items-start gap-2 mb-2">
+                              <span className="text-primary-500 mt-1">•</span>
+                              <span>{trimmedLine.replace(/^[•\-\*]\s/, '')}</span>
+                            </div>
+                          );
+                        }
+                        // Check if line is numbered list
+                        const numberedMatch = trimmedLine.match(/^(\d+)[.\)]\s/);
+                        if (numberedMatch) {
+                          return (
+                            <div key={idx} className="flex items-start gap-2 mb-2">
+                              <span className="text-primary-500 font-medium min-w-[1.5rem]">{numberedMatch[1]}.</span>
+                              <span>{trimmedLine.replace(/^\d+[.\)]\s/, '')}</span>
+                            </div>
+                          );
+                        }
+                        // Regular paragraph
+                        return trimmedLine ? <p key={idx} className="mb-3">{line}</p> : <br key={idx} />;
+                      })}
+                    </div>
                   </div>
                   <div className="mt-auto flex justify-between items-end border-t border-slate-100 pt-6">
                     <div className="flex items-center gap-2">
