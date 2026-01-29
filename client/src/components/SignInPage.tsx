@@ -6,6 +6,8 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { useAuth } from "../context/AuthContext";
+import { AuthApiError } from "../services/auth";
 
 interface SignInPageProps {
   onBack: () => void;
@@ -19,18 +21,26 @@ export function SignInPage({ onBack, onSignIn, onSignUp }: SignInPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    // Simulate authentication
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // For now, just sign in successfully
-    setIsLoading(false);
-    onSignIn();
+    try {
+      await login(email, password);
+      onSignIn();
+    } catch (err) {
+      if (err instanceof AuthApiError) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

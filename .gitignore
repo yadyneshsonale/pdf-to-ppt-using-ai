@@ -7,9 +7,12 @@ token.txt
 .env.*.local
 client/.env
 client/.env.local
+server/.env
 
 # Dependencies
 node_modules/
+client/node_modules/
+server/node_modules/
 .venv/
 __pycache__/
 *.pyc
@@ -17,7 +20,11 @@ __pycache__/
 # Build outputs
 dist/
 build/
+client/dist/
 *.egg-info/
+
+# Prisma
+server/prisma/migrations/
 
 # IDE
 .vscode/
@@ -29,4 +36,17 @@ Thumbs.db
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Jobs output
 jobs/
+
+# Vite cache
+.vite/
+client/.vite/
+
+# Uploads
+uploads/
+server/uploads/

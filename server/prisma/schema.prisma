@@ -1,0 +1,82 @@
+// Prisma Schema for Paper to PPT Generator
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Plans table - subscription tiers
+model Plan {
+  id        String   @id @default(uuid())
+  name      PlanType @unique
+  price     Float    @default(0)
+  features  String[] @default([])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  users     User[]
+
+  @@map("plans")
+}
+
+enum PlanType {
+  FREE
+  PAID
+  PREMIUM
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// Users table - authentication and profile
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  name         String?
+  role         UserRole      @default(USER)
+  planId       String?       @map("plan_id")
+  plan         Plan?         @relation(fields: [planId], references: [id])
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  history      UserHistory[]
+  ppts         Ppt[]
+
+  @@map("users")
+}
+
+// User History - tracks paper conversions
+model UserHistory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paperName String   @map("paper_name")
+  pptId     String?  @map("ppt_id")
+  ppt       Ppt?     @relation(fields: [pptId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("user_history")
+}
+
+// PPT table - stores generated presentations
+model Ppt {
+  id         String        @id @default(uuid())
+  userId     String        @map("user_id")
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId String?       @map("template_id")
+  title      String
+  slideJson  Json          @map("slide_json")
+  pdfPath    String?       @map("pdf_path")
+  texPath    String?       @map("tex_path")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  history    UserHistory[]
+
+  @@map("ppts")
+}

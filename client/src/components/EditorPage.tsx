@@ -15,7 +15,10 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  User
+  User,
+  Table,
+  GripVertical,
+  LayoutGrid
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -33,17 +36,38 @@ interface Slide {
 
 interface EditorPageProps {
   onLogout: () => void;
+  initialSlides?: Slide[];
+  jobId?: string;
+  pdfPath?: string;
+  title?: string;
+  selectedTemplate?: string | null;
 }
 
-export function EditorPage({ onLogout }: EditorPageProps) {
-  const [slides, setSlides] = useState<Slide[]>([
+// Template color schemes for styling
+const templateStyles: Record<string, { bg: string; accent: string; text: string }> = {
+  "corporate-blue": { bg: "from-blue-900 to-slate-900", accent: "bg-blue-500", text: "text-blue-100" },
+  "executive-dark": { bg: "from-slate-900 to-zinc-900", accent: "bg-amber-500", text: "text-amber-100" },
+  "academic": { bg: "from-slate-100 to-gray-100", accent: "bg-indigo-600", text: "text-gray-800" },
+  "tech-startup": { bg: "from-purple-900 to-indigo-900", accent: "bg-cyan-400", text: "text-cyan-100" },
+  "minimalist-white": { bg: "from-white to-gray-50", accent: "bg-gray-900", text: "text-gray-900" },
+  "neon-cyber": { bg: "from-gray-900 to-black", accent: "bg-pink-500", text: "text-pink-100" },
+  "nature-earth": { bg: "from-emerald-900 to-green-900", accent: "bg-emerald-400", text: "text-emerald-100" },
+  "creative-gradient": { bg: "from-purple-600 to-pink-500", accent: "bg-white", text: "text-white" },
+};
+
+export function EditorPage({ onLogout, initialSlides, jobId, pdfPath, title, selectedTemplate }: EditorPageProps) {
+  const defaultSlides: Slide[] = [
     { id: "1", title: "Introduction to Quantum Computing", content: "Understanding the fundamentals of qubits and superposition in modern research.", type: "title" },
     { id: "2", title: "Research Methodology", content: "Our team utilized a variety of testing methods including ion traps and superconducting loops to maintain coherence.", type: "content" },
     { id: "3", title: "Experimental Results", content: "The data shows a 25% increase in coherence time compared to previous industry standards.", type: "content" },
-  ]);
-  
+  ];
+
+  const [slides, setSlides] = useState<Slide[]>(initialSlides || defaultSlides);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [presentationTitle, setPresentationTitle] = useState(title || "Research Paper Project");
+  
   const activeSlide = slides[activeSlideIndex];
+  const templateStyle = selectedTemplate ? templateStyles[selectedTemplate] : templateStyles["corporate-blue"];
 
   const updateSlide = (field: keyof Slide, value: string) => {
     const newSlides = [...slides];
@@ -140,7 +164,11 @@ export function EditorPage({ onLogout }: EditorPageProps) {
         {/* Top Toolbar */}
         <header className="h-14 border-b border-white/10 bg-slate-900/20 flex items-center justify-between px-6">
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-slate-400">Research Paper Project</span>
+            <Input
+              value={presentationTitle}
+              onChange={(e) => setPresentationTitle(e.target.value)}
+              className="bg-transparent border-none text-sm font-medium text-slate-300 hover:bg-white/5 focus:bg-white/10 w-auto min-w-[200px]"
+            />
             <div className="h-4 w-[1px] bg-white/10" />
             <span className="text-sm font-semibold">{activeSlide.title}</span>
           </div>
@@ -148,7 +176,31 @@ export function EditorPage({ onLogout }: EditorPageProps) {
             <Button variant="ghost" size="sm" className="text-slate-300 hover:bg-white/5">
               <Share2 className="w-4 h-4 mr-2" /> Share
             </Button>
-            <Button variant="ghost" size="sm" className="text-slate-300 hover:bg-white/5">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-slate-300 hover:bg-white/5"
+              onClick={() => {
+                // Export functionality - in a real app, this would send to backend
+                const exportData = {
+                  title: presentationTitle,
+                  slides: slides.map(s => ({
+                    title: s.title,
+                    content: s.content
+                  })),
+                  template: selectedTemplate
+                };
+                console.log("Exporting presentation:", exportData);
+                // Download as JSON for now
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${presentationTitle.replace(/\s+/g, '_')}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
               <Download className="w-4 h-4 mr-2" /> Export
             </Button>
             <Button size="sm" className="bg-primary-600 hover:bg-primary-500">
@@ -221,13 +273,33 @@ export function EditorPage({ onLogout }: EditorPageProps) {
                     className="bg-white/5 border-white/10 focus-visible:ring-primary-500 resize-none"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <Button variant="outline" size="sm" className="bg-white/5 border-white/10">
-                    <Type className="w-4 h-4 mr-2" /> Text
+                    <Type className="w-4 h-4 mr-1" /> Text
                   </Button>
                   <Button variant="outline" size="sm" className="bg-white/5 border-white/10">
-                    <ImageIcon className="w-4 h-4 mr-2" /> Image
+                    <ImageIcon className="w-4 h-4 mr-1" /> Image
                   </Button>
+                  <Button variant="outline" size="sm" className="bg-white/5 border-white/10">
+                    <Table className="w-4 h-4 mr-1" /> Table
+                  </Button>
+                </div>
+                <div className="pt-4 border-t border-white/10">
+                  <label className="text-xs font-semibold text-slate-400 uppercase mb-3 block">Slide Actions</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" size="sm" className="bg-white/5 border-white/10">
+                      <GripVertical className="w-4 h-4 mr-1" /> Reorder
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
+                      onClick={() => deleteSlide(activeSlideIndex)}
+                      disabled={slides.length <= 1}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" /> Delete
+                    </Button>
+                  </div>
                 </div>
               </TabsContent>
               

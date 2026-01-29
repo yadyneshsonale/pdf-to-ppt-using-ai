@@ -11,9 +11,12 @@ import { TemplatesPage } from "./components/TemplatesPage";
 import { SignInPage } from "./components/SignInPage";
 import { SignUpPage } from "./components/SignUpPage";
 import { FileEditorPage } from "./components/FileEditorPage";
+import { UserDashboard } from "./components/UserDashboard";
+import { AdminDashboard } from "./components/AdminDashboard";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import type { GenerateResponse, Slide } from "./services/api";
 
-type Page = "landing" | "signin" | "signup" | "templates" | "editor" | "files";
+type Page = "landing" | "signin" | "signup" | "templates" | "editor" | "files" | "dashboard" | "admin";
 
 interface PresentationData {
   jobId: string;
@@ -23,11 +26,19 @@ interface PresentationData {
   title: string;
 }
 
-export default function App() {
+// Store uploaded file data to pass between pages
+interface UploadData {
+  file: File;
+  title: string;
+}
+
+function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("landing");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [presentationData, setPresentationData] = useState<PresentationData | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [uploadData, setUploadData] = useState<UploadData | null>(null);
+  
+  const { isAuthenticated, isAdmin, logout, user } = useAuth();
 
   const handleSelectPlan = (plan: string) => {
     if (plan === "Free") {
@@ -45,11 +56,30 @@ export default function App() {
     }
   };
 
+  // New flow: Upload -> Templates -> API -> Editor
+  const handleFileUpload = (file: File, title: string) => {
+    setUploadData({ file, title });
+    setCurrentPage("templates");
+  };
+
   const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplate(templateId);
+    // Template selection now handled by TemplatesPage which will call API
+  };
+
+  const handleGenerationComplete = (response: GenerateResponse, title: string, templateId: string) => {
+    setPresentationData({
+      jobId: response.job_id,
+      slides: response.slides,
+      pdfPath: response.pdf_path,
+      texPath: response.tex_path,
+      title,
+    });
     setSelectedTemplate(templateId);
     setCurrentPage("editor");
   };
 
+  // Legacy handler kept for compatibility
   const handleUploadComplete = (response: GenerateResponse, title: string) => {
     setPresentationData({
       jobId: response.job_id,
@@ -61,19 +91,17 @@ export default function App() {
     setCurrentPage("editor");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     setPresentationData(null);
-    setIsLoggedIn(false);
     setCurrentPage("landing");
   };
 
   const handleSignIn = () => {
-    setIsLoggedIn(true);
     setCurrentPage("landing");
   };
 
   const handleSignUp = () => {
-    setIsLoggedIn(true);
     setCurrentPage("landing");
   };
 
@@ -97,6 +125,32 @@ export default function App() {
     );
   }
 
+  if (currentPage === "dashboard") {
+    if (!isAuthenticated) {
+      setCurrentPage("signin");
+      return null;
+    }
+    return (
+      <UserDashboard 
+        onBack={() => setCurrentPage("landing")}
+        onEditPpt={(pptId) => {
+          // TODO: Load PPT data and navigate to editor
+          console.log('Edit PPT:', pptId);
+        }}
+      />
+    );
+  }
+
+  if (currentPage === "admin") {
+    if (!isAuthenticated || !isAdmin) {
+      setCurrentPage("landing");
+      return null;
+    }
+    return (
+      <AdminDashboard onBack={() => setCurrentPage("landing")} />
+    );
+  }
+
   if (currentPage === "files") {
     return (
       <FileEditorPage onBack={() => setCurrentPage("landing")} />
@@ -106,8 +160,13 @@ export default function App() {
   if (currentPage === "templates") {
     return (
       <TemplatesPage 
-        onBack={() => setCurrentPage("landing")}
+        onBack={() => {
+          setUploadData(null);
+          setCurrentPage("landing");
+        }}
         onSelect={handleTemplateSelect}
+        uploadData={uploadData}
+        onGenerationComplete={handleGenerationComplete}
       />
     );
   }
@@ -120,6 +179,7 @@ export default function App() {
         jobId={presentationData?.jobId}
         pdfPath={presentationData?.pdfPath}
         title={presentationData?.title}
+        selectedTemplate={selectedTemplate}
       />
     );
   }
@@ -130,10 +190,14 @@ export default function App() {
         onGetStarted={handleGetStarted} 
         onSignIn={() => setCurrentPage("signin")}
         onFiles={() => setCurrentPage("files")}
-        isLoggedIn={isLoggedIn}
+        onDashboard={() => setCurrentPage("dashboard")}
+        onAdmin={() => setCurrentPage("admin")}
+        isLoggedIn={isAuthenticated}
+        isAdmin={isAdmin}
+        userName={user?.name || user?.email}
         onLogout={handleLogout}
       />
-      <Hero onUploadComplete={handleUploadComplete} />
+      <Hero onFileUpload={handleFileUpload} />
       <div id="features">
         <Features />
       </div>
@@ -144,5 +208,13 @@ export default function App() {
       </div>
       <Footer />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

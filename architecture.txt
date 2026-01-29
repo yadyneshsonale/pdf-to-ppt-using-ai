@@ -1,0 +1,182 @@
+Project: Research Paper → PPT Generator (Frontend Architecture Context)
+
+This document describes the frontend and client-side architecture of the web application.
+DO NOT modify backend APIs, request formats, or response schemas.
+All changes must be limited to the client/ frontend folder only.
+
+--------------------------------------------------
+HIGH-LEVEL FLOW
+--------------------------------------------------
+
+1. Landing Page (Initial Load)
+2. Research Paper Upload
+3. Template Selection (Free & Paid)
+4. PPT Generation via API (JSON response)
+5. PPT Editing Interface (PowerPoint-like editor)
+
+--------------------------------------------------
+1. LANDING PAGE (PUBLIC)
+--------------------------------------------------
+
+Purpose:
+- Introduce the product and convert visitors into users.
+
+UI Components:
+- Navigation Bar
+  - Logo
+  - Links (Home, Features, Pricing, Contact)
+  - Sign In / Sign Up buttons
+
+- Hero Section
+  - Drag-and-drop upload box (PDF/DOCX research paper)
+  - "Generate PPT" button
+  - Short product description
+
+- Marketing Sections
+  - "Why Choose Us?"
+  - "How It Works"
+  - "Simple, Transparent Pricing"
+  - "Loved by Researchers" (testimonials)
+
+Behavior:
+- Upload is allowed without authentication (or redirected if auth required)
+- On file upload + Generate button click → navigate to Template Selection page
+
+--------------------------------------------------
+2. FILE UPLOAD HANDLING (CLIENT-SIDE)
+--------------------------------------------------
+
+- File is selected via drag-and-drop or file picker
+- File is validated on the client (type, size)
+- File is sent to backend using EXISTING API
+- Client stores:
+  - Upload status
+  - File metadata (name, size)
+  - Temporary session ID or job ID (if provided by backend)
+
+--------------------------------------------------
+3. TEMPLATE SELECTION PAGE
+--------------------------------------------------
+
+Purpose:
+- Allow user to choose a presentation template.
+
+UI Components:
+- Template Grid
+  - Free Templates
+  - Paid Templates (locked or marked as premium)
+- Template Preview (thumbnail or modal)
+- "Use Template" button
+
+Behavior:
+- Selecting a paid template:
+  - If user is not paid → show upgrade/paywall UI
+- Selecting a free/authorized template:
+  - Triggers PPT generation API call
+
+--------------------------------------------------
+4. PPT GENERATION API INTEGRATION
+--------------------------------------------------
+
+IMPORTANT:
+- API contracts MUST NOT be changed.
+
+Existing API Response Format Example:
+{
+  "Slide 1": {
+    "title": "Introduction",
+    "content": "..."
+  },
+  "Slide 2": {
+    "title": "Methodology",
+    "content": "..."
+  }
+}
+
+Client Responsibilities:
+- Receive JSON slide data
+- Normalize data into frontend state
+- Map slide data into selected template placeholders
+
+--------------------------------------------------
+5. TEMPLATE FILLING LOGIC
+--------------------------------------------------
+
+- Each template defines:
+  - Slide layouts
+  - Title placeholders
+  - Content placeholders
+  - Image/table zones
+
+Mapping Logic:
+- JSON slide keys → slide order
+- title → title placeholder
+- content → body text placeholder
+
+No backend formatting changes allowed.
+
+--------------------------------------------------
+6. PPT EDITING INTERFACE (POWERPOINT-LIKE)
+--------------------------------------------------
+
+Purpose:
+- Allow user to edit generated slides before export.
+
+UI Components:
+- Slide Thumbnail Sidebar
+- Main Slide Canvas
+- Toolbar:
+  - Edit text
+  - Add images
+  - Add tables
+  - Change layout
+  - Reorder slides
+  - Delete slides
+
+Editing Features:
+- Inline text editing
+- Image upload (client-side)
+- Table creation/editing
+- Drag-and-drop positioning (optional)
+
+State Management:
+- Slides stored in frontend state (JSON-based)
+- Changes are reflected immediately in UI
+- No backend sync unless explicitly triggered
+
+--------------------------------------------------
+7. EXPORT / DOWNLOAD
+--------------------------------------------------
+
+- Final PPT is generated using existing backend export API
+- Frontend sends edited slide JSON as-is
+- User downloads .pptx file
+
+--------------------------------------------------
+TECHNICAL FRONTEND NOTES
+--------------------------------------------------
+
+- Framework:
+- State Management:
+  - Slides
+  - Selected Template
+  - Upload Status
+  - User Auth State
+- Routing:
+  - "/" → Landing Page
+  - "/templates" → Template Selection
+  - "/editor" → PPT Editor
+
+--------------------------------------------------
+STRICT RULES FOR COPILOT
+--------------------------------------------------
+
+1. DO NOT modify backend APIs
+2. DO NOT change request/response schemas
+3. ONLY modify files inside the client folder
+4. Backend behavior is treated as a black box
+5. All transformations are client-side only
+
+--------------------------------------------------
+END OF DOCUMENT
+--------------------------------------------------

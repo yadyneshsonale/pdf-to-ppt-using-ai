@@ -8,7 +8,10 @@ import {
   Sparkles,
   Zap,
   Clock,
-  Globe
+  Globe,
+  Loader2,
+  Lock,
+  Crown
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
@@ -16,6 +19,7 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { generatePresentation, type GenerateProgress, type GenerateResponse, ApiError } from "../services/api";
 
 interface Template {
   id: string;
@@ -28,15 +32,23 @@ interface Template {
 
 const TEMPLATES: Template[] = [
   {
-    id: "1",
-    name: "Futuristic Research",
+    id: "corporate-blue",
+    name: "Corporate Blue",
     category: "Professional",
     preview: "https://images.unsplash.com/photo-1586381317467-392e3a1ba577?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcmVzZW50YXRpb24lMjBzbGlkZSUyMHRlbXBsYXRlJTIwZGVzaWduJTIwcHJvZmVzc2lvbmFsJTIwZnV0dXJpc3RpY3xlbnwxfHx8fDE3Njk1MTgxMjJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    isPremium: true,
-    tags: ["High-Tech", "AI", "Blue"]
+    isPremium: false,
+    tags: ["Business", "Clean", "Blue"]
   },
   {
-    id: "2",
+    id: "executive-dark",
+    name: "Executive Dark",
+    category: "Professional",
+    preview: "https://images.unsplash.com/photo-1582406592664-24b0c8705265?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkYXJrJTIwdGhlbWUlMjBwcmVzZW50YXRpb24lMjBkZXNpZ258ZW58MXx8fHwxNzY5NTE4MTI1fDA",
+    isPremium: true,
+    tags: ["Dark", "Executive", "Gold"]
+  },
+  {
+    id: "academic",
     name: "Clean Academic",
     category: "Academic",
     preview: "https://images.unsplash.com/photo-1717994818193-266ff93e3396?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwcHJlc2VudGF0aW9uJTIwc2xpZGUlMjBsYXlvdXR8ZW58MXx8fHwxNzY5NTE4MTI0fDA",
@@ -44,48 +56,66 @@ const TEMPLATES: Template[] = [
     tags: ["Thesis", "White", "Clear"]
   },
   {
-    id: "3",
-    name: "Midnight Boardroom",
+    id: "tech-startup",
+    name: "Tech Startup",
     category: "Modern",
-    preview: "https://images.unsplash.com/photo-1582406592664-24b0c8705265?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkYXJrJTIwdGhlbWUlMjBwcmVzZW50YXRpb24lMjBkZXNpZ258ZW58MXx8fHwxNzY5NTE4MTI1fDA",
-    isPremium: true,
-    tags: ["Dark", "Executive", "Gold"]
-  },
-  {
-    id: "4",
-    name: "Scientific Abstract",
-    category: "Academic",
     preview: "https://images.unsplash.com/photo-1569000972143-d9f60420a1b4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzY2llbnRpZmljJTIwcmVzZWFyY2glMjBwb3N0ZXIlMjBiYWNrZ3JvdW5kJTIwYmx1ZXxlbnwxfHx8fDE3Njk1MTgxMjd8MA",
     isPremium: false,
-    tags: ["Biology", "Chemistry", "Gradient"]
+    tags: ["Tech", "Gradient", "Modern"]
   },
   {
-    id: "5",
-    name: "Minimalist Grid",
+    id: "minimalist-white",
+    name: "Minimalist White",
     category: "Minimal",
     preview: "https://images.unsplash.com/photo-1497366216548-37526070297c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
     isPremium: false,
     tags: ["White", "Structure", "Flat"]
   },
   {
-    id: "6",
-    name: "Neo-Digital",
+    id: "neon-cyber",
+    name: "Neon Cyber",
     category: "Modern",
     preview: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
     isPremium: true,
     tags: ["Cyberpunk", "Neon", "Glow"]
+  },
+  {
+    id: "nature-earth",
+    name: "Nature & Earth",
+    category: "Professional",
+    preview: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    isPremium: false,
+    tags: ["Nature", "Green", "Organic"]
+  },
+  {
+    id: "creative-gradient",
+    name: "Creative Gradient",
+    category: "Modern",
+    preview: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+    isPremium: true,
+    tags: ["Creative", "Colorful", "Gradient"]
   }
 ];
+
+interface UploadData {
+  file: File;
+  title: string;
+}
 
 interface TemplatesPageProps {
   onBack: () => void;
   onSelect: (templateId: string) => void;
+  uploadData?: UploadData | null;
+  onGenerationComplete?: (response: GenerateResponse, title: string, templateId: string) => void;
 }
 
-export function TemplatesPage({ onBack, onSelect }: TemplatesPageProps) {
+export function TemplatesPage({ onBack, onSelect, uploadData, onGenerationComplete }: TemplatesPageProps) {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState<GenerateProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const categories = ["All", "Professional", "Academic", "Modern", "Minimal"];
 
@@ -95,23 +125,91 @@ export function TemplatesPage({ onBack, onSelect }: TemplatesPageProps) {
     return matchesSearch && matchesCategory;
   });
 
+  const handleGenerateWithTemplate = async () => {
+    if (!selectedId || !uploadData || !onGenerationComplete) return;
+
+    const template = TEMPLATES.find(t => t.id === selectedId);
+    if (template?.isPremium) {
+      // Show premium modal or redirect to payment
+      setError("This is a premium template. Please upgrade your plan to use it.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    setProgress({ status: 'uploading', message: 'Starting generation...', progress: 0 });
+
+    try {
+      const response = await generatePresentation(
+        uploadData.file,
+        uploadData.title,
+        (progressUpdate) => setProgress(progressUpdate)
+      );
+
+      setIsGenerating(false);
+      onGenerationComplete(response, uploadData.title, selectedId);
+
+    } catch (err) {
+      setIsGenerating(false);
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+      setProgress(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Generation Progress Overlay */}
+        {isGenerating && (
+          <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-slate-900 p-8 rounded-2xl border border-white/10 max-w-md w-full mx-4 text-center"
+            >
+              <Loader2 className="w-16 h-16 animate-spin text-primary-500 mx-auto mb-6" />
+              <h3 className="text-2xl font-bold text-white mb-2">Generating Presentation</h3>
+              <p className="text-slate-400 mb-6">{progress?.message || "Processing your document..."}</p>
+              <div className="w-full bg-white/10 rounded-full h-3">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-primary-500 to-accent-500 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress?.progress || 0}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+              <p className="text-sm text-slate-500 mt-4">{progress?.progress || 0}% complete</p>
+            </motion.div>
+          </div>
+        )}
+
         {/* Header Section */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div className="space-y-2">
             <button 
               onClick={onBack}
               className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4 group"
+              disabled={isGenerating}
             >
               <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               Back to Upload
             </button>
-            <h1 className="text-4xl font-bold tracking-tight">Choose a Template</h1>
+            <h1 className="text-4xl font-bold tracking-tight">Template Selection</h1>
             <p className="text-slate-400 max-w-lg">
-              Select the perfect design style for your research paper. Our AI will adapt your content to fit the template's structure.
+              Choose a presentation template. Free templates are ready to use. Premium templates require an upgrade.
             </p>
+            {uploadData && (
+              <div className="flex items-center gap-2 mt-4 p-3 bg-primary-500/10 rounded-lg border border-primary-500/20">
+                <Sparkles className="w-4 h-4 text-primary-400" />
+                <span className="text-sm text-primary-300">
+                  Ready to generate: <strong>{uploadData.title}</strong> ({uploadData.file.name})
+                </span>
+              </div>
+            )}
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4">
@@ -122,17 +220,42 @@ export function TemplatesPage({ onBack, onSelect }: TemplatesPageProps) {
                 className="pl-10 bg-white/5 border-white/10 w-full sm:w-64 focus-visible:ring-primary-500"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                disabled={isGenerating}
               />
             </div>
             <Button 
-              className="bg-gradient-to-r from-primary-500 to-accent-500 hover:opacity-90"
-              disabled={!selectedId}
-              onClick={() => selectedId && onSelect(selectedId)}
+              className="bg-gradient-to-r from-primary-500 to-accent-500 hover:opacity-90 disabled:opacity-50"
+              disabled={!selectedId || isGenerating || !uploadData}
+              onClick={handleGenerateWithTemplate}
             >
-              Continue with Template
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Use Template
+                </>
+              )}
             </Button>
           </div>
         </header>
+
+        {/* Error display */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl flex items-center justify-between"
+          >
+            <p className="text-red-200">{error}</p>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+              ✕
+            </button>
+          </motion.div>
+        )}
 
         {/* Filters and Stats */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8 border-b border-white/10 pb-6">
@@ -168,7 +291,7 @@ export function TemplatesPage({ onBack, onSelect }: TemplatesPageProps) {
         </div>
 
         {/* Template Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredTemplates.map((template) => (
             <motion.div
               key={template.id}
@@ -181,7 +304,9 @@ export function TemplatesPage({ onBack, onSelect }: TemplatesPageProps) {
                 className={`overflow-hidden bg-white/5 border-2 transition-all duration-300 cursor-pointer group ${
                   selectedId === template.id 
                     ? "border-primary-500 ring-4 ring-primary-500/10" 
-                    : "border-white/10 hover:border-white/20"
+                    : template.isPremium 
+                      ? "border-amber-500/30 hover:border-amber-500/50"
+                      : "border-white/10 hover:border-white/20"
                 }`}
                 onClick={() => setSelectedId(template.id)}
               >
@@ -193,12 +318,19 @@ export function TemplatesPage({ onBack, onSelect }: TemplatesPageProps) {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent opacity-60" />
                   
-                  {template.isPremium && (
-                    <Badge className="absolute top-4 right-4 bg-amber-500 text-white border-none">
-                      <Star className="w-3 h-3 mr-1 fill-current" /> Premium
+                  {template.isPremium ? (
+                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                      <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none shadow-lg">
+                        <Crown className="w-3 h-3 mr-1 fill-current" /> Premium
+                      </Badge>
+                    </div>
+                  ) : (
+                    <Badge className="absolute top-4 right-4 bg-emerald-500/80 text-white border-none">
+                      Free
                     </Badge>
                   )}
                   
+                  {/* Selection indicator */}
                   <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
                     selectedId === template.id ? "opacity-100" : "opacity-0"
                   }`}>

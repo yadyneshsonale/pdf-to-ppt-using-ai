@@ -1,16 +1,30 @@
 import { motion } from "motion/react";
-import { FileText, Menu, X, FolderOpen, LogOut, User } from "lucide-react";
+import { FileText, Menu, X, FolderOpen, LogOut, User, LayoutDashboard, Shield } from "lucide-react";
 import { useState } from "react";
 
 interface HeaderProps {
   onGetStarted: () => void;
   onSignIn: () => void;
   onFiles?: () => void;
+  onDashboard?: () => void;
+  onAdmin?: () => void;
   isLoggedIn?: boolean;
+  isAdmin?: boolean;
+  userName?: string;
   onLogout?: () => void;
 }
 
-export function Header({ onGetStarted, onSignIn, onFiles, isLoggedIn, onLogout }: HeaderProps) {
+export function Header({ 
+  onGetStarted, 
+  onSignIn, 
+  onFiles, 
+  onDashboard,
+  onAdmin,
+  isLoggedIn, 
+  isAdmin,
+  userName,
+  onLogout 
+}: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -32,32 +46,44 @@ export function Header({ onGetStarted, onSignIn, onFiles, isLoggedIn, onLogout }
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-8">
+              <a href="#" className="text-white/80 hover:text-white transition-colors">
+                Home
+              </a>
               <a href="#features" className="text-white/80 hover:text-white transition-colors">
                 Features
               </a>
               <a href="#pricing" className="text-white/80 hover:text-white transition-colors">
                 Pricing
               </a>
-              <a href="#testimonials" className="text-white/80 hover:text-white transition-colors">
-                Testimonials
+              <a href="#contact" className="text-white/80 hover:text-white transition-colors">
+                Contact
               </a>
-              {onFiles && (
-                <button
-                  onClick={onFiles}
-                  className="text-white/80 hover:text-white transition-colors flex items-center gap-1"
-                >
-                  <FolderOpen className="w-4 h-4" />
-                  Files
-                </button>
-              )}
             </nav>
 
             <div className="hidden md:flex items-center gap-4">
               {isLoggedIn ? (
                 <>
+                  {isAdmin && onAdmin && (
+                    <button
+                      onClick={onAdmin}
+                      className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition-colors"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Admin
+                    </button>
+                  )}
+                  {onDashboard && (
+                    <button
+                      onClick={onDashboard}
+                      className="flex items-center gap-1 text-white/80 hover:text-white transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Dashboard
+                    </button>
+                  )}
                   <div className="flex items-center gap-2 text-white/80">
                     <User className="w-4 h-4" />
-                    <span>Account</span>
+                    <span className="max-w-24 truncate">{userName || 'Account'}</span>
                   </div>
                   <button
                     onClick={onLogout}

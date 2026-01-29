@@ -6,6 +6,8 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { useAuth } from "../context/AuthContext";
+import { AuthApiError } from "../services/auth";
 
 interface SignUpPageProps {
   onBack: () => void;
@@ -21,6 +23,8 @@ export function SignUpPage({ onBack, onSignUp, onSignIn }: SignUpPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { register } = useAuth();
 
   const passwordRequirements = [
     { label: "At least 8 characters", met: password.length >= 8 },
@@ -44,11 +48,18 @@ export function SignUpPage({ onBack, onSignUp, onSignIn }: SignUpPageProps) {
     setIsLoading(true);
     setError(null);
 
-    // Simulate registration
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsLoading(false);
-    onSignUp();
+    try {
+      await register(email, password, name);
+      onSignUp();
+    } catch (err) {
+      if (err instanceof AuthApiError) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
