@@ -7,10 +7,28 @@ import shutil
 import uuid
 import json
 import re
+import os
 
 from server.pdfparser.main import process_command
 
 app = FastAPI(title="SlideWeaver API")
+
+# Load HuggingFace API token from server-side (not exposed to client)
+def get_hf_token() -> str:
+    """Get HuggingFace API token from environment or token.txt file."""
+    # Try environment variable first
+    token = os.environ.get('HF_API_TOKEN')
+    if token:
+        return token
+    
+    # Fall back to token.txt file
+    token_file = Path(__file__).parent / 'token.txt'
+    if token_file.exists():
+        return token_file.read_text().strip()
+    
+    raise RuntimeError('HuggingFace API token not configured. Set HF_API_TOKEN env var or create token.txt')
+
+HF_API_TOKEN = get_hf_token()
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -46,9 +64,9 @@ async def download_file(job_id: str, filename: str):
 @app.post("/generate")
 async def generate_slides(
     pdf: UploadFile = File(...),
-    title: str = Form("Presentation"),
-    api_token: str = Form(...)
+    title: str = Form("Presentation")
 ):
+    """Generate slides from PDF. Uses server-side HuggingFace token."""
     job_id = str(uuid.uuid4())
     workdir = Path("jobs") / job_id
     workdir.mkdir(parents=True, exist_ok=True)
@@ -69,7 +87,7 @@ async def generate_slides(
     args.model = "meta-llama/Llama-3.2-3B-Instruct"
     args.title = title
     args.compile = True
-    args.api_token = api_token
+    args.api_token = HF_API_TOKEN  # Use server-side token
 
     try:
         process_command(args)

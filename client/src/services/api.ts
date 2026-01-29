@@ -4,7 +4,6 @@
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const HF_API_TOKEN = import.meta.env.VITE_HF_API_TOKEN || '';
 
 /**
  * Internal normalized slide structure used throughout the app
@@ -200,15 +199,11 @@ export async function generatePresentation(
   if (!file) {
     throw new ApiError('No file provided');
   }
-  if (!HF_API_TOKEN) {
-    throw new ApiError('API configuration error. Please contact support.');
-  }
 
-  // Create form data
+  // Create form data (no API token - handled server-side)
   const formData = new FormData();
   formData.append('pdf', file);
   formData.append('title', title || 'Presentation');
-  formData.append('api_token', HF_API_TOKEN);
 
   // Report upload progress
   onProgress?.({
