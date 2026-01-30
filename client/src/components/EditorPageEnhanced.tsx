@@ -22,27 +22,29 @@ import {
   Loader2,
   Image,
   Video,
-  Table,
   Square,
   Circle,
   Triangle,
   Save,
   X,
-  Palette,
-  Maximize,
-  ArrowLeft
+  ArrowLeft,
+  Grid3X3,
+  Check,
+  Undo2,
+  Redo2
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import type { Slide as ApiSlide } from "../services/api";
+import { savePpt } from "../services/auth";
 import PptxGenJS from "pptxgenjs";
 
-// Text element within a slide
-interface TextElement {
+// Element within a slide
+interface SlideElement {
   id: string;
-  type: 'title' | 'subtitle' | 'body' | 'caption';
+  type: 'title' | 'subtitle' | 'body' | 'caption' | 'image' | 'video' | 'table' | 'shape';
   content: string;
   x: number;
   y: number;
@@ -54,7 +56,20 @@ interface TextElement {
   fontStyle: 'normal' | 'italic';
   textAlign: 'left' | 'center' | 'right';
   color: string;
+  // Media properties
+  src?: string;
+  // Table properties
+  tableData?: string[][];
+  tableRows?: number;
+  tableCols?: number;
+  // Shape properties
+  shapeType?: 'rectangle' | 'circle' | 'triangle';
+  fillColor?: string;
+  strokeColor?: string;
 }
+
+// Alias for backward compatibility
+type TextElement = SlideElement;
 
 // Slide with multiple text elements
 interface Slide {
@@ -66,9 +81,10 @@ interface Slide {
 }
 
 interface EditorPageProps {
-  onLogout: () => void;
   onBack?: () => void;
-  initialSlides?: ApiSlide[];
+  // Accept any slide format - normalizeSlides handles both API and internal formats
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialSlides?: ApiSlide[] | Slide[] | any[];
   jobId?: string;
   pdfPath?: string;
   title?: string;
@@ -306,12 +322,38 @@ const fontFamilies = [
 const fontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48, 56, 64, 72];
 
 /**
- * Convert API slides to editor format with text elements
+ * Check if slides are already in internal editor format (have elements array)
  */
-function normalizeSlides(apiSlides?: ApiSlide[], templateId?: string | null): Slide[] {
+/**
+ * Check if slides are already in internal editor format (have elements array with actual elements)
+ * API-normalized slides have empty elements array, so we need to check for elements with content
+ */
+function isInternalSlideFormat(slides: unknown[]): slides is Slide[] {
+  if (!slides || slides.length === 0) return false;
+  const firstSlide = slides[0] as Record<string, unknown>;
+  const elements = firstSlide?.elements;
+  // Check if elements is an array with at least one element (not just empty array)
+  const hasElements = Array.isArray(elements) && elements.length > 0;
+  console.log('isInternalSlideFormat check:', { hasElements, elementsLength: Array.isArray(elements) ? elements.length : 'not array', firstSlide });
+  return hasElements;
+}
+
+/**
+ * Convert API slides to editor format with text elements
+ * Also handles already-normalized slides (from saved projects)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeSlides(apiSlides?: any[], templateId?: string | null): Slide[] {
   const theme = templateThemes[templateId || 'corporate-blue'] || templateThemes['corporate-blue'];
   
+  console.log('normalizeSlides called with:', { 
+    slidesCount: apiSlides?.length, 
+    templateId,
+    firstSlide: apiSlides?.[0]
+  });
+  
   if (!apiSlides || apiSlides.length === 0) {
+    console.log('No slides provided, creating default slide');
     return [{
       id: 'slide-1',
       layout: 'title',
@@ -352,78 +394,97 @@ function normalizeSlides(apiSlides?: ApiSlide[], templateId?: string | null): Sl
     }];
   }
 
-  return apiSlides.map((slide, index) => ({
-    id: slide.id || `slide-${index + 1}`,
-    layout: (index === 0 ? 'title' : 'title-content') as Slide['layout'],
-    backgroundColor: theme.background,
-    backgroundGradient: theme.gradient,
-    elements: [
-      {
-        id: `title-${index + 1}`,
-        type: 'title' as const,
-        content: slide.title || `Slide ${index + 1}`,
-        x: 5,
-        y: 5,
-        width: 90,
-        height: 12,
-        fontSize: index === 0 ? 42 : 32,
-        fontFamily: 'Inter, system-ui, sans-serif',
-        fontWeight: 'bold' as const,
-        fontStyle: 'normal' as const,
-        textAlign: (index === 0 ? 'center' : 'left') as TextElement['textAlign'],
-        color: theme.titleColor
-      },
-      ...(slide.paperTitle && index === 0 ? [{
-        id: `paper-title-${index + 1}`,
-        type: 'subtitle' as const,
-        content: slide.paperTitle,
-        x: 10,
-        y: 45,
-        width: 80,
-        height: 8,
-        fontSize: 20,
-        fontFamily: 'Inter, system-ui, sans-serif',
-        fontWeight: 'normal' as const,
-        fontStyle: 'normal' as const,
-        textAlign: 'center' as const,
-        color: theme.bodyColor
-      }] : []),
-      ...(slide.authors && index === 0 ? [{
-        id: `authors-${index + 1}`,
-        type: 'caption' as const,
-        content: slide.authors,
-        x: 10,
-        y: 55,
-        width: 80,
-        height: 6,
-        fontSize: 16,
-        fontFamily: 'Inter, system-ui, sans-serif',
-        fontWeight: 'normal' as const,
-        fontStyle: 'italic' as const,
-        textAlign: 'center' as const,
-        color: theme.bodyColor
-      }] : []),
-      {
-        id: `body-${index + 1}`,
-        type: 'body' as const,
-        content: slide.content || 'Add your content here...',
-        x: 5,
-        y: index === 0 ? 65 : 18,
-        width: 90,
-        height: index === 0 ? 30 : 75,
-        fontSize: 16,
-        fontFamily: 'Inter, system-ui, sans-serif',
-        fontWeight: 'normal' as const,
-        fontStyle: 'normal' as const,
-        textAlign: 'left' as const,
-        color: theme.bodyColor
-      }
-    ]
-  }));
+  // If slides are already in internal format (from saved project), use them directly
+  if (isInternalSlideFormat(apiSlides)) {
+    console.log('Using internal format slides directly');
+    return apiSlides;
+  }
+
+  console.log('Converting API slides to internal format');
+  // Convert API slides to internal format
+  // Handle both new format (slide_title) and legacy format (title)
+  return apiSlides.map((slide: any, index: number) => {
+    // Handle both slide_title (new API format) and title (legacy format)
+    const slideTitle = slide.slide_title || slide.title || `Slide ${index + 1}`;
+    // Handle both paper_title (snake_case) and paperTitle (camelCase)
+    const paperTitle = slide.paper_title || slide.paperTitle;
+    const authors = slide.authors;
+    const content = slide.content || 'Add your content here...';
+
+    console.log(`Processing slide ${index + 1}:`, { slideTitle, content: content.substring(0, 50) });
+
+    return {
+      id: slide.id || `slide-${index + 1}`,
+      layout: (index === 0 ? 'title' : 'title-content') as Slide['layout'],
+      backgroundColor: theme.background,
+      backgroundGradient: theme.gradient,
+      elements: [
+        {
+          id: `title-${index + 1}`,
+          type: 'title' as const,
+          content: slideTitle,
+          x: 5,
+          y: 5,
+          width: 90,
+          height: 12,
+          fontSize: index === 0 ? 42 : 32,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontWeight: 'bold' as const,
+          fontStyle: 'normal' as const,
+          textAlign: (index === 0 ? 'center' : 'left') as TextElement['textAlign'],
+          color: theme.titleColor
+        },
+        ...(paperTitle && index === 0 ? [{
+          id: `paper-title-${index + 1}`,
+          type: 'subtitle' as const,
+          content: paperTitle,
+          x: 10,
+          y: 45,
+          width: 80,
+          height: 8,
+          fontSize: 20,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontWeight: 'normal' as const,
+          fontStyle: 'normal' as const,
+          textAlign: 'center' as const,
+          color: theme.bodyColor
+        }] : []),
+        ...(authors && index === 0 ? [{
+          id: `authors-${index + 1}`,
+          type: 'caption' as const,
+          content: authors,
+          x: 10,
+          y: 55,
+          width: 80,
+          height: 6,
+          fontSize: 16,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontWeight: 'normal' as const,
+          fontStyle: 'italic' as const,
+          textAlign: 'center' as const,
+          color: theme.bodyColor
+        }] : []),
+        {
+          id: `body-${index + 1}`,
+          type: 'body' as const,
+          content: content,
+          x: 5,
+          y: index === 0 ? 65 : 18,
+          width: 90,
+          height: index === 0 ? 30 : 75,
+          fontSize: 16,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontWeight: 'normal' as const,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          color: theme.bodyColor
+        }
+      ]
+    };
+  });
 }
 
 export function EditorPageEnhanced({ 
-  onLogout, 
   onBack,
   initialSlides, 
   // jobId and pdfPath available for future use 
@@ -438,9 +499,64 @@ export function EditorPageEnhanced({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState(selectedTemplate || 'corporate-blue');
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  
+  // Undo/Redo history
+  const [history, setHistory] = useState<Slide[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedoAction = useRef(false);
+  
   const exportDropdownRef = useRef<HTMLDivElement>(null);
+  const themeSelectorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Track slide changes for undo/redo
+  useEffect(() => {
+    if (isUndoRedoAction.current) {
+      isUndoRedoAction.current = false;
+      return;
+    }
+    
+    // Add current state to history
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(JSON.parse(JSON.stringify(slides)));
+      // Limit history to 50 states
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        return newHistory;
+      }
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [slides]);
+
+  // Undo function
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      isUndoRedoAction.current = true;
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setSlides(JSON.parse(JSON.stringify(history[newIndex])));
+    }
+  }, [historyIndex, history]);
+
+  // Redo function
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      isUndoRedoAction.current = true;
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setSlides(JSON.parse(JSON.stringify(history[newIndex])));
+    }
+  }, [historyIndex, history]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -448,13 +564,270 @@ export function EditorPageEnhanced({
       if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
         setShowExportDropdown(false);
       }
+      if (themeSelectorRef.current && !themeSelectorRef.current.contains(event.target as Node)) {
+        setShowThemeSelector(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Keyboard shortcuts for delete/backspace
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input/textarea
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedElementId) {
+        event.preventDefault();
+        deleteElement();
+      }
+      
+      // Undo: Ctrl+Z or Cmd+Z
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      }
+      
+      // Redo: Ctrl+Shift+Z or Cmd+Shift+Z or Ctrl+Y
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey))) {
+        event.preventDefault();
+        redo();
+      }
+      
+      // Escape to exit presentation mode
+      if (event.key === 'Escape' && isPresentationMode) {
+        setIsPresentationMode(false);
+      }
+      
+      // Arrow keys for slide navigation in presentation mode
+      if (isPresentationMode) {
+        if (event.key === 'ArrowRight' || event.key === ' ') {
+          event.preventDefault();
+          if (activeSlideIndex < slides.length - 1) {
+            setActiveSlideIndex(i => i + 1);
+          }
+        }
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          if (activeSlideIndex > 0) {
+            setActiveSlideIndex(i => i - 1);
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElementId, isPresentationMode, activeSlideIndex, slides.length]);
   const activeSlide = slides[activeSlideIndex];
   const selectedElement = activeSlide?.elements.find(el => el.id === selectedElementId);
-  const theme = templateThemes[selectedTemplate || 'corporate-blue'] || templateThemes['corporate-blue'];
+  const theme = templateThemes[currentTheme] || templateThemes['corporate-blue'];
+
+  // Apply theme to all slides
+  const applyTheme = useCallback((themeId: string) => {
+    const newTheme = templateThemes[themeId];
+    if (!newTheme) return;
+    
+    setCurrentTheme(themeId);
+    setSlides(prev => prev.map(slide => ({
+      ...slide,
+      backgroundColor: newTheme.background,
+      backgroundGradient: newTheme.gradient,
+      elements: slide.elements.map(el => ({
+        ...el,
+        color: el.type === 'title' ? newTheme.titleColor : newTheme.bodyColor
+      }))
+    })));
+    setShowThemeSelector(false);
+  }, []);
+
+  // Save project to backend database
+  const saveProject = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      const projectData = {
+        title: presentationTitle,
+        slideJson: {
+          slides,
+          theme: currentTheme,
+          savedAt: new Date().toISOString()
+        },
+        templateId: currentTheme,
+      };
+      await savePpt(projectData);
+      setSaveMessage('Saved!');
+      setTimeout(() => setSaveMessage(null), 2000);
+    } catch (error) {
+      console.error('Error saving project:', error);
+      setSaveMessage('Failed to save');
+      setTimeout(() => setSaveMessage(null), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [presentationTitle, slides, currentTheme]);
+
+  // Handle image upload
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageUrl = event.target?.result as string;
+      const newElement: SlideElement = {
+        id: `image-${Date.now()}`,
+        type: 'image',
+        content: '',
+        src: imageUrl,
+        x: 20,
+        y: 30,
+        width: 40,
+        height: 40,
+        fontSize: 16,
+        fontFamily: 'Inter, system-ui, sans-serif',
+        fontWeight: 'normal',
+        fontStyle: 'normal',
+        textAlign: 'center',
+        color: theme.bodyColor
+      };
+      setSlides(prev => prev.map((slide, idx) => 
+        idx === activeSlideIndex 
+          ? { ...slide, elements: [...slide.elements, newElement] }
+          : slide
+      ));
+      setSelectedElementId(newElement.id);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }, [activeSlideIndex, theme]);
+
+  // Handle video upload
+  const handleVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const videoUrl = URL.createObjectURL(file);
+    const newElement: SlideElement = {
+      id: `video-${Date.now()}`,
+      type: 'video',
+      content: '',
+      src: videoUrl,
+      x: 20,
+      y: 30,
+      width: 50,
+      height: 40,
+      fontSize: 16,
+      fontFamily: 'Inter, system-ui, sans-serif',
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textAlign: 'center',
+      color: theme.bodyColor
+    };
+    setSlides(prev => prev.map((slide, idx) => 
+      idx === activeSlideIndex 
+        ? { ...slide, elements: [...slide.elements, newElement] }
+        : slide
+    ));
+    setSelectedElementId(newElement.id);
+    e.target.value = '';
+  }, [activeSlideIndex, theme]);
+
+  // Add table element
+  const addTable = useCallback((rows: number = 3, cols: number = 3) => {
+    const tableData = Array(rows).fill(null).map(() => Array(cols).fill(''));
+    const newElement: SlideElement = {
+      id: `table-${Date.now()}`,
+      type: 'table',
+      content: '',
+      x: 15,
+      y: 30,
+      width: 70,
+      height: 40,
+      fontSize: 14,
+      fontFamily: 'Inter, system-ui, sans-serif',
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textAlign: 'center',
+      color: theme.bodyColor,
+      tableData,
+      tableRows: rows,
+      tableCols: cols
+    };
+    setSlides(prev => prev.map((slide, idx) => 
+      idx === activeSlideIndex 
+        ? { ...slide, elements: [...slide.elements, newElement] }
+        : slide
+    ));
+    setSelectedElementId(newElement.id);
+  }, [activeSlideIndex, theme]);
+
+  // Add shape element
+  const addShape = useCallback((shapeType: 'rectangle' | 'circle' | 'triangle') => {
+    const newElement: SlideElement = {
+      id: `shape-${Date.now()}`,
+      type: 'shape',
+      content: '',
+      x: 30,
+      y: 30,
+      width: 20,
+      height: 20,
+      fontSize: 16,
+      fontFamily: 'Inter, system-ui, sans-serif',
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textAlign: 'center',
+      color: theme.bodyColor,
+      shapeType,
+      fillColor: theme.accentColor,
+      strokeColor: theme.titleColor
+    };
+    setSlides(prev => prev.map((slide, idx) => 
+      idx === activeSlideIndex 
+        ? { ...slide, elements: [...slide.elements, newElement] }
+        : slide
+    ));
+    setSelectedElementId(newElement.id);
+  }, [activeSlideIndex, theme]);
+
+  // Update table cell
+  const updateTableCell = useCallback((elementId: string, rowIndex: number, colIndex: number, value: string) => {
+    setSlides(prev => prev.map((slide, idx) => 
+      idx === activeSlideIndex 
+        ? {
+            ...slide,
+            elements: slide.elements.map(el => {
+              if (el.id === elementId && el.tableData) {
+                const newTableData = el.tableData.map((row, rIdx) => 
+                  rIdx === rowIndex 
+                    ? row.map((cell, cIdx) => cIdx === colIndex ? value : cell)
+                    : row
+                );
+                return { ...el, tableData: newTableData };
+              }
+              return el;
+            })
+          }
+        : slide
+    ));
+  }, [activeSlideIndex]);
+
+  // Start presentation mode
+  const startPresentation = useCallback(() => {
+    setIsPresentationMode(true);
+    // Try to go fullscreen
+    document.documentElement.requestFullscreen?.().catch(() => {
+      // Fullscreen might be blocked, continue anyway
+    });
+  }, []);
+
+  // Exit presentation mode
+  const exitPresentation = useCallback(() => {
+    setIsPresentationMode(false);
+    document.exitFullscreen?.().catch(() => {});
+  }, []);
 
   // Update element property
   const updateElement = useCallback((elementId: string, updates: Partial<TextElement>) => {
@@ -881,10 +1254,36 @@ export function EditorPageEnhanced({
 
       {/* Main Editor Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Hidden file inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageUpload}
+        />
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={handleVideoUpload}
+        />
+
         {/* Top Toolbar */}
         <header className="h-14 border-b border-white/10 bg-slate-900/30 flex items-center justify-between px-4 gap-4">
-          {/* Title & File */}
+          {/* Back & Title */}
           <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="text-slate-400 hover:text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Home
+            </Button>
+            <div className="w-px h-6 bg-white/10" />
             <div className="p-1.5 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg">
               <Presentation className="w-4 h-4 text-white" />
             </div>
@@ -893,6 +1292,30 @@ export function EditorPageEnhanced({
               onChange={(e) => setPresentationTitle(e.target.value)}
               className="bg-transparent border-none text-sm font-medium text-white w-48 hover:bg-white/5 focus:bg-white/10"
             />
+            <div className="w-px h-6 bg-white/10" />
+            {/* Undo/Redo Buttons */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={undo}
+                disabled={historyIndex <= 0}
+                className="h-8 w-8 text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={redo}
+                disabled={historyIndex >= history.length - 1}
+                className="h-8 w-8 text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           
           {/* Formatting Toolbar */}
@@ -948,6 +1371,24 @@ export function EditorPageEnhanced({
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            {/* Save Button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={saveProject}
+              disabled={isSaving}
+              className="text-slate-300 hover:bg-white/5"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : saveMessage ? (
+                <Check className="w-4 h-4 mr-2 text-green-400" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {saveMessage || 'Save'}
+            </Button>
+            
             <Button variant="ghost" size="sm" className="text-slate-300 hover:bg-white/5">
               <Share2 className="w-4 h-4 mr-2" /> Share
             </Button>
@@ -1003,7 +1444,11 @@ export function EditorPageEnhanced({
               )}
             </div>
             
-            <Button size="sm" className="bg-primary-600 hover:bg-primary-500">
+            <Button 
+              size="sm" 
+              onClick={startPresentation}
+              className="bg-primary-600 hover:bg-primary-500"
+            >
               <Play className="w-4 h-4 mr-2" /> Present
             </Button>
           </div>
@@ -1054,26 +1499,118 @@ export function EditorPageEnhanced({
                   </div>
                 )}
                 
-                {/* Editable text area */}
-                <textarea
-                  value={element.content}
-                  onChange={(e) => updateElement(element.id, { content: e.target.value })}
-                  className="w-full h-full bg-transparent resize-none focus:outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-white/20"
-                  style={{
-                    color: element.color,
-                    fontSize: `${element.fontSize}px`,
-                    fontFamily: element.fontFamily,
-                    fontWeight: element.fontWeight,
-                    fontStyle: element.fontStyle,
-                    textAlign: element.textAlign,
-                    lineHeight: 1.5,
-                    minHeight: element.type === 'body' ? '150px' : 'auto',
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedElementId(element.id);
-                  }}
-                />
+                {/* Render based on element type */}
+                {element.type === 'image' && element.src && (
+                  <img 
+                    src={element.src} 
+                    alt="" 
+                    className="w-full h-full object-contain"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedElementId(element.id);
+                    }}
+                  />
+                )}
+                
+                {element.type === 'video' && element.src && (
+                  <video 
+                    src={element.src} 
+                    controls 
+                    className="w-full h-full object-contain"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedElementId(element.id);
+                    }}
+                  />
+                )}
+                
+                {element.type === 'table' && element.tableData && (
+                  <table 
+                    className="w-full h-full border-collapse"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedElementId(element.id);
+                    }}
+                  >
+                    <tbody>
+                      {element.tableData.map((row, rowIndex) => (
+                        <tr key={rowIndex}>
+                          {row.map((cell, colIndex) => (
+                            <td 
+                              key={colIndex}
+                              className="border border-white/20 p-1"
+                              style={{ color: element.color, fontSize: `${element.fontSize}px` }}
+                            >
+                              <input
+                                type="text"
+                                value={cell}
+                                onChange={(e) => updateTableCell(element.id, rowIndex, colIndex, e.target.value)}
+                                className="w-full bg-transparent text-center focus:outline-none focus:bg-white/10"
+                                style={{ color: element.color }}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                
+                {element.type === 'shape' && (
+                  <div 
+                    className="w-full h-full flex items-center justify-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedElementId(element.id);
+                    }}
+                  >
+                    {element.shapeType === 'rectangle' && (
+                      <div 
+                        className="w-full h-full rounded-lg"
+                        style={{ backgroundColor: element.fillColor, border: `2px solid ${element.strokeColor}` }}
+                      />
+                    )}
+                    {element.shapeType === 'circle' && (
+                      <div 
+                        className="w-full h-full rounded-full"
+                        style={{ backgroundColor: element.fillColor, border: `2px solid ${element.strokeColor}` }}
+                      />
+                    )}
+                    {element.shapeType === 'triangle' && (
+                      <div 
+                        className="w-0 h-0"
+                        style={{ 
+                          borderLeft: '50px solid transparent',
+                          borderRight: '50px solid transparent',
+                          borderBottom: `80px solid ${element.fillColor}`
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+                
+                {/* Editable text area - for text elements only */}
+                {['title', 'subtitle', 'body', 'caption'].includes(element.type) && (
+                  <textarea
+                    value={element.content}
+                    onChange={(e) => updateElement(element.id, { content: e.target.value })}
+                    className="w-full h-full bg-transparent resize-none focus:outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-white/20"
+                    style={{
+                      color: element.color,
+                      fontSize: `${element.fontSize}px`,
+                      fontFamily: element.fontFamily,
+                      fontWeight: element.fontWeight,
+                      fontStyle: element.fontStyle,
+                      textAlign: element.textAlign,
+                      lineHeight: 1.5,
+                      minHeight: element.type === 'body' ? '150px' : 'auto',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedElementId(element.id);
+                    }}
+                  />
+                )}
 
                 {/* Resize handles */}
                 {selectedElementId === element.id && (
@@ -1244,9 +1781,9 @@ export function EditorPageEnhanced({
               </>
             ) : (
               <>
-                {/* Add Elements */}
+                {/* Add Text Elements */}
                 <div className="space-y-3">
-                  <label className="text-xs font-semibold text-slate-400 uppercase">Add Elements</label>
+                  <label className="text-xs font-semibold text-slate-400 uppercase">Text Elements</label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button 
                       variant="outline" 
@@ -1283,29 +1820,128 @@ export function EditorPageEnhanced({
                   </div>
                 </div>
 
-                {/* Theme Colors */}
+                {/* Import Media */}
                 <div className="space-y-3">
+                  <label className="text-xs font-semibold text-slate-400 uppercase">Import Media</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="bg-white/5 border-white/10 justify-start"
+                    >
+                      <Image className="w-4 h-4 mr-2" /> Image
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => videoInputRef.current?.click()}
+                      className="bg-white/5 border-white/10 justify-start"
+                    >
+                      <Video className="w-4 h-4 mr-2" /> Video
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Insert Objects */}
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-slate-400 uppercase">Insert Objects</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => addTable(3, 3)}
+                      className="bg-white/5 border-white/10 justify-start"
+                    >
+                      <Grid3X3 className="w-4 h-4 mr-2" /> Table
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => addShape('rectangle')}
+                      className="bg-white/5 border-white/10 justify-start"
+                    >
+                      <Square className="w-4 h-4 mr-2" /> Rectangle
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => addShape('circle')}
+                      className="bg-white/5 border-white/10 justify-start"
+                    >
+                      <Circle className="w-4 h-4 mr-2" /> Circle
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => addShape('triangle')}
+                      className="bg-white/5 border-white/10 justify-start"
+                    >
+                      <Triangle className="w-4 h-4 mr-2" /> Triangle
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Theme Selector */}
+                <div className="space-y-3" ref={themeSelectorRef}>
                   <label className="text-xs font-semibold text-slate-400 uppercase">Theme</label>
-                  <div className="p-3 bg-white/5 rounded-lg">
-                    <p className="text-sm text-white font-medium mb-2">{theme.name}</p>
-                    <div className="flex gap-2">
+                  <div 
+                    className="p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition-colors"
+                    onClick={() => setShowThemeSelector(!showThemeSelector)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-white font-medium">{theme.name}</p>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showThemeSelector ? 'rotate-180' : ''}`} />
+                    </div>
+                    <div className="flex gap-2 mt-2">
                       <div 
-                        className="w-8 h-8 rounded-full border-2 border-white/20" 
+                        className="w-6 h-6 rounded-full border-2 border-white/20" 
                         style={{ backgroundColor: theme.titleColor }}
-                        title="Title Color"
                       />
                       <div 
-                        className="w-8 h-8 rounded-full border-2 border-white/20" 
+                        className="w-6 h-6 rounded-full border-2 border-white/20" 
                         style={{ backgroundColor: theme.bodyColor }}
-                        title="Body Color"
                       />
                       <div 
-                        className="w-8 h-8 rounded-full border-2 border-white/20" 
+                        className="w-6 h-6 rounded-full border-2 border-white/20" 
                         style={{ backgroundColor: theme.accentColor }}
-                        title="Accent Color"
                       />
                     </div>
                   </div>
+                  
+                  {/* Theme dropdown */}
+                  <AnimatePresence>
+                    {showThemeSelector && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-2 mt-2 max-h-64 overflow-y-auto">
+                          {Object.entries(templateThemes).map(([id, t]) => (
+                            <div
+                              key={id}
+                              onClick={() => applyTheme(id)}
+                              className={`p-2 rounded-lg cursor-pointer transition-colors ${
+                                currentTheme === id ? 'bg-primary-500/20 border border-primary-500' : 'bg-white/5 hover:bg-white/10'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-white">{t.name}</span>
+                                <span className="text-[10px] text-slate-500">{t.category}</span>
+                              </div>
+                              <div className="flex gap-1 mt-1">
+                                <div className="w-4 h-4 rounded" style={{ background: t.background }} />
+                                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.titleColor }} />
+                                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t.accentColor }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Slide Info */}
@@ -1320,23 +1956,184 @@ export function EditorPageEnhanced({
                     </p>
                   </div>
                 </div>
+
+                {/* Keyboard shortcuts hint */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase">Shortcuts</label>
+                  <div className="p-3 bg-white/5 rounded-lg space-y-1 text-xs text-slate-400">
+                    <p><kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+Z</kbd> Undo</p>
+                    <p><kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+Shift+Z</kbd> Redo</p>
+                    <p><kbd className="px-1 py-0.5 bg-white/10 rounded">Backspace</kbd> Delete element</p>
+                    <p><kbd className="px-1 py-0.5 bg-white/10 rounded">Esc</kbd> Exit presentation</p>
+                    <p><kbd className="px-1 py-0.5 bg-white/10 rounded">←</kbd> <kbd className="px-1 py-0.5 bg-white/10 rounded">→</kbd> Navigate slides</p>
+                  </div>
+                </div>
               </>
             )}
           </div>
         </ScrollArea>
-
-        {/* Logout */}
-        <div className="p-4 border-t border-white/10">
-          <Button 
-            variant="ghost" 
-            onClick={onLogout}
-            className="w-full text-slate-400 hover:text-red-400 hover:bg-red-500/10"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
       </aside>
+
+      {/* Presentation Mode Overlay */}
+      <AnimatePresence>
+        {isPresentationMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+            onClick={() => {
+              if (activeSlideIndex < slides.length - 1) {
+                setActiveSlideIndex(i => i + 1);
+              }
+            }}
+          >
+            {/* Exit button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                exitPresentation();
+              }}
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors z-10"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+
+            {/* Slide display */}
+            <div
+              className="relative w-full h-full max-w-[95vw] max-h-[95vh] aspect-video"
+              style={{ 
+                background: activeSlide?.backgroundGradient || activeSlide?.backgroundColor || '#1e293b'
+              }}
+            >
+              {/* Decorative elements */}
+              {theme.decorativeElements && (
+                <div 
+                  className="absolute inset-0 pointer-events-none z-0"
+                  dangerouslySetInnerHTML={{ __html: theme.decorativeElements }}
+                />
+              )}
+
+              {/* Slide content */}
+              {activeSlide?.elements.map((element) => (
+                <div
+                  key={element.id}
+                  className="absolute"
+                  style={{
+                    left: `${element.x}%`,
+                    top: `${element.y}%`,
+                    width: `${element.width}%`,
+                    minHeight: `${element.height}%`,
+                  }}
+                >
+                  {element.type === 'image' && element.src && (
+                    <img src={element.src} alt="" className="w-full h-full object-contain" />
+                  )}
+                  {element.type === 'video' && element.src && (
+                    <video src={element.src} controls className="w-full h-full object-contain" />
+                  )}
+                  {element.type === 'table' && element.tableData && (
+                    <table className="w-full h-full border-collapse">
+                      <tbody>
+                        {element.tableData.map((row, rowIndex) => (
+                          <tr key={rowIndex}>
+                            {row.map((cell, colIndex) => (
+                              <td 
+                                key={colIndex}
+                                className="border border-white/20 p-2 text-center"
+                                style={{ color: element.color, fontSize: `${element.fontSize * 1.5}px` }}
+                              >
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  {element.type === 'shape' && (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {element.shapeType === 'rectangle' && (
+                        <div 
+                          className="w-full h-full rounded-lg"
+                          style={{ backgroundColor: element.fillColor, border: `3px solid ${element.strokeColor}` }}
+                        />
+                      )}
+                      {element.shapeType === 'circle' && (
+                        <div 
+                          className="w-full h-full rounded-full"
+                          style={{ backgroundColor: element.fillColor, border: `3px solid ${element.strokeColor}` }}
+                        />
+                      )}
+                      {element.shapeType === 'triangle' && (
+                        <div 
+                          className="w-0 h-0"
+                          style={{ 
+                            borderLeft: '80px solid transparent',
+                            borderRight: '80px solid transparent',
+                            borderBottom: `130px solid ${element.fillColor}`
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
+                  {['title', 'subtitle', 'body', 'caption'].includes(element.type) && (
+                    <div
+                      style={{
+                        color: element.color,
+                        fontSize: `${element.fontSize * 1.5}px`,
+                        fontFamily: element.fontFamily,
+                        fontWeight: element.fontWeight,
+                        fontStyle: element.fontStyle,
+                        textAlign: element.textAlign,
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {element.content}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Slide number */}
+              <div className="absolute bottom-6 right-6 text-lg font-medium text-white/50">
+                {activeSlideIndex + 1} / {slides.length}
+              </div>
+            </div>
+
+            {/* Navigation hints */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4 text-white/40 text-sm">
+              <span>Click or press <kbd className="px-2 py-1 bg-white/10 rounded">→</kbd> for next</span>
+              <span>Press <kbd className="px-2 py-1 bg-white/10 rounded">Esc</kbd> to exit</span>
+            </div>
+
+            {/* Navigation arrows */}
+            {activeSlideIndex > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveSlideIndex(i => i - 1);
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              >
+                <ChevronLeft className="w-8 h-8 text-white" />
+              </button>
+            )}
+            {activeSlideIndex < slides.length - 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveSlideIndex(i => i + 1);
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              >
+                <ChevronRight className="w-8 h-8 text-white" />
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

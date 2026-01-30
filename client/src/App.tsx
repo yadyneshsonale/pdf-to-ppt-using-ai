@@ -16,13 +16,18 @@ import { FileEditorPage } from "./components/FileEditorPage";
 import { UserDashboard } from "./components/UserDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { getPpt } from "./services/auth";
 import type { GenerateResponse, Slide } from "./services/api";
 
 type Page = "landing" | "signin" | "signup" | "templates" | "templates-gallery" | "pricing" | "editor" | "files" | "dashboard" | "admin";
 
+// Slides can be either API format or internal editor format (with elements)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySlide = Slide | Record<string, any>;
+
 interface PresentationData {
   jobId: string;
-  slides: Slide[];
+  slides: AnySlide[];
   pdfPath: string;
   texPath: string;
   title: string;
@@ -135,9 +140,33 @@ function AppContent() {
     return (
       <UserDashboard 
         onBack={() => setCurrentPage("landing")}
-        onEditPpt={(pptId) => {
-          // TODO: Load PPT data and navigate to editor
-          console.log('Edit PPT:', pptId);
+        onEditPpt={async (pptId) => {
+          try {
+            const pptData = await getPpt(pptId);
+            console.log('Loaded PPT data:', pptData);
+            
+            // Parse the slideJson - it contains {slides, theme, savedAt}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const slideJson = pptData.slideJson as Record<string, any>;
+            console.log('Slide JSON:', slideJson);
+            
+            // Extract slides from the nested structure
+            const loadedSlides = slideJson?.slides || [];
+            console.log('Loaded slides:', loadedSlides);
+            
+            setPresentationData({
+              jobId: pptId,
+              slides: loadedSlides,
+              pdfPath: pptData.pdfPath || '',
+              texPath: pptData.texPath || '',
+              title: pptData.title,
+            });
+            setSelectedTemplate(pptData.templateId || slideJson?.theme || 'corporate-blue');
+            setCurrentPage("editor");
+          } catch (error) {
+            console.error('Failed to load presentation:', error);
+            alert('Failed to load presentation. Please try again.');
+          }
         }}
       />
     );
@@ -204,7 +233,6 @@ function AppContent() {
   if (currentPage === "editor") {
     return (
       <EditorPageEnhanced 
-        onLogout={handleLogout}
         onBack={() => setCurrentPage("landing")}
         initialSlides={presentationData?.slides}
         jobId={presentationData?.jobId}
